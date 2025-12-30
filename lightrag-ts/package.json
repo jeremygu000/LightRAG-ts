@@ -1,0 +1,38 @@
+{
+  "name": "lightrag-ts",
+  "version": "0.1.0",
+  "description": "TypeScript implementation of LightRAG - Simple and Fast Retrieval-Augmented Generation",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "tsx watch src/index.ts",
+    "example": "tsx examples/basic-usage.ts"
+  },
+  "keywords": [
+    "rag",
+    "lightrag",
+    "knowledge-graph",
+    "llm",
+    "openai",
+    "retrieval",
+    "embeddings"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "openai": "^4.70.0",
+    "gpt-tokenizer": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

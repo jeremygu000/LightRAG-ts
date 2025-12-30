@@ -1,0 +1,481 @@
+/**
+ * LightRAG - Main Class
+ * TypeScript implementation of LightRAG for Retrieval-Augmented Generation
+ */
+
+import path from 'path';
+import type {
+    LightRAGConfig,
+    InsertOptions,
+    QueryParam,
+    QueryResult,
+    LLMFunction,
+    TextChunk,
+    DocumentStatus,
+} from './types.js';
+import {
+    JsonKVStorage,
+    MemoryVectorStorage,
+    MemoryGraphStorage,
+    BaseKVStorage,
+    BaseVectorStorage,
+    BaseGraphStorage,
+} from './storage/index.js';
+import { createOpenAIComplete, createOpenAIEmbed } from './llm/index.js';
+import { chunkingByTokenSize, addDocIdToChunks, extractFromChunks, mergeEntityDescriptions, mergeRelationDescriptions, mergeSourceIds } from './operate/index.js';
+import { kgQuery } from './operate/query.js';
+import {
+    DEFAULT_CHUNK_TOKEN_SIZE,
+    DEFAULT_CHUNK_OVERLAP_TOKEN_SIZE,
+    DEFAULT_TOP_K,
+    DEFAULT_MAX_GLEANING,
+    DEFAULT_ENTITY_TYPES,
+    DEFAULT_SUMMARY_LANGUAGE,
+    GRAPH_FIELD_SEP,
+} from './constants.js';
+import {
+    GPTTokenizer,
+    computeMdhashId,
+    ensureDir,
+    logger,
+} from './utils/index.js';
+
+// ==================== LightRAG Class ====================
+
+export class LightRAG {
+    private workingDir: string;
+    private namespace: string;
+    private tokenizer: GPTTokenizer;
+    private llmModelFunc: LLMFunction;
+    private embeddingFunc: (texts: string[]) => Promise<number[][]>;
+    private embeddingDim: number;
+
+    // Storage instances
+    private docsKv!: BaseKVStorage<DocumentStatus>;
+    private chunksKv!: BaseKVStorage<TextChunk>;
+    private entitiesKv!: BaseKVStorage<Record<string, unknown>>;
+    private relationsKv!: BaseKVStorage<Record<string, unknown>>;
+    private entitiesVdb!: BaseVectorStorage;
+    private relationsVdb!: BaseVectorStorage;
+    private chunksVdb!: BaseVectorStorage;
+    private graphStorage!: BaseGraphStorage;
+    private llmCache!: BaseKVStorage<Record<string, unknown>>;
+
+    // Config
+    private chunkTokenSize: number;
+    private chunkOverlapTokenSize: number;
+    private topK: number;
+    private maxGleaning: number;
+    private entityTypes: string[];
+    private language: string;
+    private enableLlmCache: boolean;
+
+    private initialized: boolean = false;
+
+    constructor(config: LightRAGConfig = {}) {
+        this.workingDir = config.workingDir || './lightrag_data';
+        this.namespace = config.namespace || 'default';
+        this.tokenizer = new GPTTokenizer();
+        this.embeddingDim = config.embeddingDim || 1536;
+
+        // LLM function
+        this.llmModelFunc = config.llmModelFunc || createOpenAIComplete();
+
+        // Embedding function
+        this.embeddingFunc = config.embeddingFunc || createOpenAIEmbed({ dimensions: this.embeddingDim });
+
+        // Chunking config
+        this.chunkTokenSize = config.chunkTokenSize || DEFAULT_CHUNK_TOKEN_SIZE;
+        this.chunkOverlapTokenSize = config.chunkOverlapTokenSize || DEFAULT_CHUNK_OVERLAP_TOKEN_SIZE;
+
+        // Query config
+        this.topK = config.topK || DEFAULT_TOP_K;
+
+        // Extraction config
+        this.maxGleaning = config.maxGleaning ?? DEFAULT_MAX_GLEANING;
+        this.entityTypes = config.entityTypes || DEFAULT_ENTITY_TYPES;
+        this.language = config.language || DEFAULT_SUMMARY_LANGUAGE;
+
+        // Cache config
+        this.enableLlmCache = config.enableLlmCache ?? true;
+    }
+
+    /**
+     * Initialize all storage instances
+     */
+    async initialize(): Promise<void> {
+        if (this.initialized) return;
+
+        const baseDir = path.join(this.workingDir, this.namespace);
+        await ensureDir(baseDir);
+
+        logger.info(`Initializing LightRAG in: ${baseDir}`);
+
+        const storageConfig = {
+            workingDir: this.workingDir,
+            namespace: this.namespace,
+            embeddingFunc: this.embeddingFunc,
+            embeddingDim: this.embeddingDim,
+        };
+
+        // Initialize KV storages
+        this.docsKv = new JsonKVStorage<DocumentStatus>({
+            ...storageConfig,
+            storageName: 'docs'
+        });
+        this.chunksKv = new JsonKVStorage<TextChunk>({
+            ...storageConfig,
+            storageName: 'chunks'
+        });
+        this.entitiesKv = new JsonKVStorage({
+            ...storageConfig,
+            storageName: 'entities_kv'
+        });
+        this.relationsKv = new JsonKVStorage({
+            ...storageConfig,
+            storageName: 'relations_kv'
+        });
+        this.llmCache = new JsonKVStorage({
+            ...storageConfig,
+            storageName: 'llm_cache'
+        });
+
+        // Initialize vector storages
+        this.entitiesVdb = new MemoryVectorStorage({
+            ...storageConfig,
+            storageName: 'entities_vdb'
+        });
+        this.relationsVdb = new MemoryVectorStorage({
+            ...storageConfig,
+            storageName: 'relations_vdb'
+        });
+        this.chunksVdb = new MemoryVectorStorage({
+            ...storageConfig,
+            storageName: 'chunks_vdb'
+        });
+
+        // Initialize graph storage
+        this.graphStorage = new MemoryGraphStorage({
+            ...storageConfig,
+            storageName: 'graph'
+        });
+
+        // Initialize all
+        await Promise.all([
+            this.docsKv.initialize(),
+            this.chunksKv.initialize(),
+            this.entitiesKv.initialize(),
+            this.relationsKv.initialize(),
+            this.llmCache.initialize(),
+            this.entitiesVdb.initialize(),
+            this.relationsVdb.initialize(),
+            this.chunksVdb.initialize(),
+            this.graphStorage.initialize(),
+        ]);
+
+        this.initialized = true;
+        logger.info('LightRAG initialized successfully');
+    }
+
+    /**
+     * Finalize and cleanup
+     */
+    async finalize(): Promise<void> {
+        if (!this.initialized) return;
+
+        await Promise.all([
+            this.docsKv.finalize(),
+            this.chunksKv.finalize(),
+            this.entitiesKv.finalize(),
+            this.relationsKv.finalize(),
+            this.llmCache.finalize(),
+            this.entitiesVdb.finalize(),
+            this.relationsVdb.finalize(),
+            this.chunksVdb.finalize(),
+            this.graphStorage.finalize(),
+        ]);
+
+        this.initialized = false;
+        logger.info('LightRAG finalized');
+    }
+
+    /**
+     * Insert documents
+     */
+    async insert(
+        input: string | string[],
+        options: InsertOptions = {}
+    ): Promise<void> {
+        await this.initialize();
+
+        const documents = Array.isArray(input) ? input : [input];
+        const ids = options.ids
+            ? (Array.isArray(options.ids) ? options.ids : [options.ids])
+            : documents.map(doc => computeMdhashId(doc, 'doc-'));
+        const filePaths = options.filePaths
+            ? (Array.isArray(options.filePaths) ? options.filePaths : [options.filePaths])
+            : documents.map(() => 'unknown_source');
+
+        logger.info(`Inserting ${documents.length} documents`);
+
+        // Process each document
+        for (let i = 0; i < documents.length; i++) {
+            const doc = documents[i];
+            const docId = ids[i] || computeMdhashId(doc, 'doc-');
+            const filePath = filePaths[i] || 'unknown_source';
+
+            // Check if already processed
+            const existing = await this.docsKv.getById(docId);
+            if (existing && existing.status === 'processed') {
+                logger.info(`Document ${docId} already processed, skipping`);
+                continue;
+            }
+
+            try {
+                // Update status
+                const docStatus: DocumentStatus = {
+                    contentSummary: doc.substring(0, 100),
+                    contentLength: doc.length,
+                    filePath,
+                    status: 'processing',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                };
+                await this.docsKv.upsert({ [docId]: docStatus });
+
+                // Chunk document
+                const chunks = chunkingByTokenSize(this.tokenizer, doc, {
+                    splitByCharacter: options.splitByCharacter,
+                    splitByCharacterOnly: options.splitByCharacterOnly,
+                    chunkTokenSize: this.chunkTokenSize,
+                    chunkOverlapTokenSize: this.chunkOverlapTokenSize,
+                });
+
+                const chunksWithId = addDocIdToChunks(chunks, docId);
+                logger.info(`Document ${docId}: ${chunksWithId.length} chunks`);
+
+                // Store chunks
+                const chunkData: Record<string, TextChunk> = {};
+                for (const chunk of chunksWithId) {
+                    const chunkId = computeMdhashId(chunk.content, 'chunk-');
+                    chunkData[chunkId] = { ...chunk, fullDocId: docId } as TextChunk;
+                }
+                await this.chunksKv.upsert(chunkData);
+
+                // Generate chunk embeddings and store in vector DB
+                const chunkContents = Object.values(chunkData).map(c => c.content);
+                const chunkIds = Object.keys(chunkData);
+                if (chunkContents.length > 0) {
+                    const embeddings = await this.embeddingFunc(chunkContents);
+                    const vectorData: Record<string, { id: string; embedding: number[]; content: string; metadata: Record<string, unknown> }> = {};
+                    for (let j = 0; j < chunkIds.length; j++) {
+                        vectorData[chunkIds[j]] = {
+                            id: chunkIds[j],
+                            embedding: embeddings[j],
+                            content: chunkContents[j],
+                            metadata: { file_path: filePath, doc_id: docId },
+                        };
+                    }
+                    await this.chunksVdb.upsert(vectorData);
+                }
+
+                // Extract entities and relations
+                const { entities, relations } = await extractFromChunks(
+                    chunksWithId,
+                    this.llmModelFunc,
+                    {
+                        entityTypes: this.entityTypes,
+                        language: this.language,
+                        maxGleaning: this.maxGleaning,
+                    },
+                    (current, total) => {
+                        logger.debug(`Extraction progress: ${current}/${total}`);
+                    }
+                );
+
+                logger.info(`Extracted ${entities.size} entities, ${relations.size} relations`);
+
+                // Merge and store entities
+                for (const [entityName, entityList] of entities.entries()) {
+                    const description = mergeEntityDescriptions(entityList);
+                    const sourceIds = entityList.map(e => e.sourceId).join(GRAPH_FIELD_SEP);
+                    const entityType = entityList[0].entityType;
+
+                    // Update graph
+                    const existingNode = await this.graphStorage.getNode(entityName);
+                    const existingSourceId = (existingNode?.source_id as string) || '';
+                    const mergedSourceId = mergeSourceIds(existingSourceId, sourceIds);
+
+                    await this.graphStorage.upsertNode(entityName, {
+                        entity_type: entityType,
+                        description: existingNode?.description
+                            ? `${existingNode.description} ${description}`
+                            : description,
+                        source_id: mergedSourceId,
+                    });
+
+                    // Store in vector DB
+                    const entityEmbed = await this.embeddingFunc([description]);
+                    await this.entitiesVdb.upsert({
+                        [entityName]: {
+                            id: entityName,
+                            embedding: entityEmbed[0],
+                            content: description,
+                            metadata: { entity_name: entityName, entity_type: entityType },
+                        },
+                    });
+                }
+
+                // Merge and store relations
+                for (const [relKey, relList] of relations.entries()) {
+                    const [srcId, tgtId] = relKey.split(GRAPH_FIELD_SEP);
+                    const { description, keywords, weight } = mergeRelationDescriptions(relList);
+                    const sourceIds = relList.map(r => r.sourceId).join(GRAPH_FIELD_SEP);
+
+                    // Update graph
+                    const existingEdge = await this.graphStorage.getEdge(srcId, tgtId);
+                    const existingSourceId = (existingEdge?.source_id as string) || '';
+                    const mergedSourceId = mergeSourceIds(existingSourceId, sourceIds);
+
+                    await this.graphStorage.upsertEdge(srcId, tgtId, {
+                        weight: ((existingEdge?.weight as number) || 0) + weight,
+                        description: existingEdge?.description
+                            ? `${existingEdge.description} ${description}`
+                            : description,
+                        keywords: existingEdge?.keywords
+                            ? `${existingEdge.keywords}, ${keywords}`
+                            : keywords,
+                        source_id: mergedSourceId,
+                    });
+
+                    // Store in vector DB
+                    const relEmbed = await this.embeddingFunc([description]);
+                    await this.relationsVdb.upsert({
+                        [relKey]: {
+                            id: relKey,
+                            embedding: relEmbed[0],
+                            content: description,
+                            metadata: { src_id: srcId, tgt_id: tgtId, keywords },
+                        },
+                    });
+                }
+
+                // Update doc status
+                docStatus.status = 'processed';
+                docStatus.updatedAt = new Date().toISOString();
+                docStatus.chunksCount = chunksWithId.length;
+                docStatus.chunksList = Object.keys(chunkData);
+                await this.docsKv.upsert({ [docId]: docStatus });
+
+            } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+                logger.error(`Failed to insert document ${docId}: ${errorMsg}`);
+
+                await this.docsKv.upsert({
+                    [docId]: {
+                        contentSummary: doc.substring(0, 100),
+                        contentLength: doc.length,
+                        filePath,
+                        status: 'failed',
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        errorMsg,
+                    },
+                });
+            }
+        }
+
+        // Commit all changes
+        await this.commitChanges();
+        logger.info('Insert complete');
+    }
+
+    /**
+     * Query with RAG
+     */
+    async query(
+        query: string,
+        param: Partial<QueryParam> = {}
+    ): Promise<QueryResult> {
+        await this.initialize();
+
+        const fullParam: QueryParam = {
+            mode: param.mode || 'hybrid',
+            topK: param.topK || this.topK,
+            ...param,
+        };
+
+        logger.info(`Query: mode=${fullParam.mode}, "${query.substring(0, 50)}..."`);
+
+        return kgQuery(
+            query,
+            this.graphStorage,
+            this.entitiesVdb,
+            this.relationsVdb,
+            this.chunksKv,
+            this.llmModelFunc,
+            fullParam,
+            this.chunksVdb
+        );
+    }
+
+    /**
+     * Get knowledge graph
+     */
+    async getKnowledgeGraph(
+        nodeLabel: string = '*',
+        maxDepth: number = 3,
+        maxNodes: number = 1000
+    ) {
+        await this.initialize();
+        return this.graphStorage.getKnowledgeGraph(nodeLabel, maxDepth, maxNodes);
+    }
+
+    /**
+     * Get document status
+     */
+    async getDocumentStatus(docId: string): Promise<DocumentStatus | null> {
+        await this.initialize();
+        return this.docsKv.getById(docId);
+    }
+
+    /**
+     * Drop all data
+     */
+    async drop(): Promise<void> {
+        await this.initialize();
+
+        await Promise.all([
+            this.docsKv.drop(),
+            this.chunksKv.drop(),
+            this.entitiesKv.drop(),
+            this.relationsKv.drop(),
+            this.llmCache.drop(),
+            this.entitiesVdb.drop(),
+            this.relationsVdb.drop(),
+            this.chunksVdb.drop(),
+            this.graphStorage.drop(),
+        ]);
+
+        logger.info('All data dropped');
+    }
+
+    /**
+     * Commit all pending changes
+     */
+    private async commitChanges(): Promise<void> {
+        await Promise.all([
+            this.docsKv.indexDoneCallback(),
+            this.chunksKv.indexDoneCallback(),
+            this.entitiesKv.indexDoneCallback(),
+            this.relationsKv.indexDoneCallback(),
+            this.llmCache.indexDoneCallback(),
+            this.entitiesVdb.indexDoneCallback(),
+            this.relationsVdb.indexDoneCallback(),
+            this.chunksVdb.indexDoneCallback(),
+            this.graphStorage.indexDoneCallback(),
+        ]);
+    }
+}
+
+export default LightRAG;
