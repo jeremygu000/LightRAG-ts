@@ -1156,20 +1156,56 @@ class LightRAG:
         file_paths: str | list[str] | None = None,
         track_id: str | None = None,
     ) -> str:
-        """Async Insert documents with checkpoint support
+        """
+       Async insert documents into LightRAG with checkpoint and progress tracking support.
+
+        This method accepts raw document text (not file paths), optionally splits documents
+        into chunks using a two-stage strategy (character-based splitting followed by
+        token-based splitting), and enqueues them into the indexing pipeline.
 
         Args:
-            input: Single document string or list of document strings
-            split_by_character: if split_by_character is not None, split the string by character, if chunk longer than
-            chunk_token_size, it will be split again by token size.
-            split_by_character_only: if split_by_character_only is True, split the string by character only, when
-            split_by_character is None, this parameter is ignored.
-            ids: list of unique document IDs, if not provided, MD5 hash IDs will be generated
-            file_paths: list of file paths corresponding to each document, used for citation
-            track_id: tracking ID for monitoring processing status, if not provided, will be generated
+            input:
+                The document content to insert.
+                - A single string represents one document.
+                - A list of strings represents multiple documents.
+                Note: This parameter expects the full text content, not file paths.
+
+            split_by_character:
+                An optional character or string delimiter (e.g. "\\n\\n", ".", "#").
+                If provided, each document is first split using this delimiter to form
+                coarse-grained chunks (e.g. paragraphs or sections).
+                Any resulting chunk that exceeds the configured `chunk_token_size`
+                will be further split by token size.
+
+            split_by_character_only:
+                If True, documents are split *only* by `split_by_character` and will NOT
+                be further split by token size, even if a chunk exceeds `chunk_token_size`.
+                This option is useful when preserving natural semantic boundaries is more
+                important than enforcing strict token limits.
+                This parameter is ignored if `split_by_character` is None.
+
+            ids:
+                Optional document IDs corresponding to each input document.
+                - A single string for a single document.
+                - A list of strings matching the length of `input` when multiple documents
+                are provided.
+                If not provided, unique document IDs will be automatically generated
+                based on the document content (MD5 hash).
+
+            file_paths:
+                Optional source identifiers corresponding to each document, used only for
+                citation and provenance in query results (e.g. file path or URI).
+                This parameter does NOT trigger file loading; the document content must
+                be provided via `input`.
+
+            track_id:
+                Optional tracking ID used for monitoring the progress and status of this
+                insertion job. If not provided, a unique tracking ID will be generated.
 
         Returns:
-            str: tracking ID for monitoring processing status
+            str:
+                The tracking ID associated with this insert operation, which can be used
+                for progress monitoring and observability.
         """
         # Generate track_id if not provided
         if track_id is None:
@@ -1182,78 +1218,7 @@ class LightRAG:
 
         return track_id
 
-    # TODO: deprecated, use insert instead
-    def insert_custom_chunks(
-        self,
-        full_text: str,
-        text_chunks: list[str],
-        doc_id: str | list[str] | None = None,
-    ) -> None:
-        loop = always_get_an_event_loop()
-        loop.run_until_complete(
-            self.ainsert_custom_chunks(full_text, text_chunks, doc_id)
-        )
-
-    # TODO: deprecated, use ainsert instead
-    async def ainsert_custom_chunks(
-        self, full_text: str, text_chunks: list[str], doc_id: str | None = None
-    ) -> None:
-        update_storage = False
-        try:
-            # Clean input texts
-            full_text = sanitize_text_for_encoding(full_text)
-            text_chunks = [sanitize_text_for_encoding(chunk) for chunk in text_chunks]
-            file_path = ""
-
-            # Process cleaned texts
-            if doc_id is None:
-                doc_key = compute_mdhash_id(full_text, prefix="doc-")
-            else:
-                doc_key = doc_id
-            new_docs = {doc_key: {"content": full_text, "file_path": file_path}}
-
-            _add_doc_keys = await self.full_docs.filter_keys({doc_key})
-            new_docs = {k: v for k, v in new_docs.items() if k in _add_doc_keys}
-            if not len(new_docs):
-                logger.warning("This document is already in the storage.")
-                return
-
-            update_storage = True
-            logger.info(f"Inserting {len(new_docs)} docs")
-
-            inserting_chunks: dict[str, Any] = {}
-            for index, chunk_text in enumerate(text_chunks):
-                chunk_key = compute_mdhash_id(chunk_text, prefix="chunk-")
-                tokens = len(self.tokenizer.encode(chunk_text))
-                inserting_chunks[chunk_key] = {
-                    "content": chunk_text,
-                    "full_doc_id": doc_key,
-                    "tokens": tokens,
-                    "chunk_order_index": index,
-                    "file_path": file_path,
-                }
-
-            doc_ids = set(inserting_chunks.keys())
-            add_chunk_keys = await self.text_chunks.filter_keys(doc_ids)
-            inserting_chunks = {
-                k: v for k, v in inserting_chunks.items() if k in add_chunk_keys
-            }
-            if not len(inserting_chunks):
-                logger.warning("All chunks are already in the storage.")
-                return
-
-            tasks = [
-                self.chunks_vdb.upsert(inserting_chunks),
-                self._process_extract_entities(inserting_chunks),
-                self.full_docs.upsert(new_docs),
-                self.text_chunks.upsert(inserting_chunks),
-            ]
-            await asyncio.gather(*tasks)
-
-        finally:
-            if update_storage:
-                await self._insert_done()
-
+   
     async def apipeline_enqueue_documents(
         self,
         input: str | list[str],
@@ -1262,25 +1227,55 @@ class LightRAG:
         track_id: str | None = None,
     ) -> str:
         """
-        Pipeline for Processing Documents
+       Enqueue documents into the ingestion pipeline.
 
-        1. Validate ids if provided or generate MD5 hash IDs and remove duplicate contents
-        2. Generate document initial status
-        3. Filter out already processed documents
-        4. Enqueue document in status
+        This method performs lightweight preprocessing and bookkeeping only.
+        It does NOT chunk documents, generate embeddings, or extract entities.
+        Its responsibility is to normalize inputs, deduplicate documents,
+        persist full document content, and initialize document processing status
+        for downstream pipeline stages.
+
+        Pipeline steps:
+            1. Normalize inputs and validate provided document IDs (if any).
+            2. Deduplicate documents based on cleaned content.
+            3. Generate document IDs (MD5-based) when IDs are not provided.
+            4. Initialize document status records (without full content).
+            5. Filter out documents that have already been enqueued or processed.
+            6. Persist full document content in `full_docs`.
+            7. Persist document metadata and processing state in `doc_status`.
 
         Args:
-            input: Single document string or list of document strings
-            ids: list of unique document IDs, if not provided, MD5 hash IDs will be generated
-            file_paths: list of file paths corresponding to each document, used for citation
-            track_id: tracking ID for monitoring processing status, if not provided, will be generated with "enqueue" prefix
+            input:
+                Raw document content to enqueue.
+                - A single string represents one document.
+                - A list of strings represents multiple documents.
+                Note: This method expects document text, not file paths.
+
+            ids:
+                Optional document IDs corresponding to each input document.
+                If provided, IDs must be unique and match the number of documents.
+                If not provided, stable MD5-based document IDs will be generated
+                from the document content.
+
+            file_paths:
+                Optional source identifiers (e.g. file paths or URIs) corresponding
+                to each document, used only for citation and provenance.
+                This method does NOT load files from these paths.
+
+            track_id:
+                Optional tracking ID for observability and progress monitoring.
+                If not provided, a new tracking ID will be generated with
+                the "enqueue" prefix.
 
         Returns:
-            str: tracking ID for monitoring processing status
+            str:
+                The tracking ID associated with this enqueue operation.
         """
         # Generate track_id if not provided
         if track_id is None or track_id.strip() == "":
             track_id = generate_track_id("enqueue")
+
+
         if isinstance(input, str):
             input = [input]
         if isinstance(ids, str):
@@ -1339,7 +1334,10 @@ class LightRAG:
                 for content, path in unique_content_with_paths.items()
             }
 
-        # 2. Generate document initial status (without content)
+        # 2. Create initial document status entries containing only lightweight metadata
+        #    (status, summary, timestamps, source, track_id).
+        #    Full document content is intentionally excluded and stored separately in `full_docs`
+        #    to keep status records lightweight for frequent reads/updates and progress tracking.
         new_docs: dict[str, Any] = {
             id_: {
                 "status": DocStatus.PENDING,
@@ -1481,7 +1479,10 @@ class LightRAG:
         pipeline_status: dict,
         pipeline_status_lock: asyncio.Lock,
     ) -> dict[str, DocProcessingStatus]:
-        """Validate and fix document data consistency by deleting inconsistent entries, but preserve failed documents"""
+        """
+        Validate and fix document data consistency by deleting inconsistent entries, 
+        but preserve failed documents only when content is missing, otherwise reset them to retry.
+        """
         inconsistent_docs = []
         failed_docs_to_preserve = []
         successful_deletions = 0
@@ -1502,6 +1503,11 @@ class LightRAG:
 
         # Log information about failed documents that will be preserved
         if failed_docs_to_preserve:
+            # Acquire a namespace-level async lock to protect shared pipeline control state.
+            # `pipeline_status` is a global, mutable control-plane object shared across
+            # concurrent async tasks within the same workspace. All reads/writes must be
+            # serialized to avoid race conditions (e.g. lost updates, inconsistent progress,
+            # or multiple workers running simultaneously).
             async with pipeline_status_lock:
                 preserve_message = f"Preserving {len(failed_docs_to_preserve)} failed document entries for manual review"
                 logger.info(preserve_message)
@@ -1523,6 +1529,7 @@ class LightRAG:
                 pipeline_status["history_messages"].append(summary_message)
 
             successful_deletions = 0
+            
             for doc_id in inconsistent_docs:
                 try:
                     status_doc = to_process_docs[doc_id]
@@ -1719,7 +1726,11 @@ class LightRAG:
                 pipeline_status["latest_message"] = log_message
                 pipeline_status["history_messages"].append(log_message)
 
-                # Get first document's file path and total count for job name
+                # Peek the first document (without consuming the collection) to derive
+                # a human-readable job name for logging and UI display.
+                # This does NOT affect document processing order or concurrency.
+                # The first document is used only to extract a representative file path
+                # and the total document count for observability purposes.
                 first_doc_id, first_doc = next(iter(to_process_docs.items()))
                 first_doc_path = first_doc.file_path
 
@@ -1737,7 +1748,7 @@ class LightRAG:
 
                 # Create a counter to track the number of processed files
                 processed_count = 0
-                # Create a semaphore to limit the number of concurrent file processing
+                # Create a semaphore （信号量）to limit the number of concurrent file processing
                 semaphore = asyncio.Semaphore(self.max_parallel_insert)
 
                 async def process_document(
@@ -1759,6 +1770,11 @@ class LightRAG:
                     entity_relation_task = None
 
                     async with semaphore:
+                        # processed_count is defined in the outer scope of the document-processing loop.
+                        # Use `nonlocal` here to update the shared progress counter so that:
+                        #   - pipeline_status["cur_batch"] reflects global progress across all documents
+                        #   - log messages show correct file index (e.g. 3/10, 4/10)
+                        # This counter is for observability only and does NOT affect processing order or concurrency.
                         nonlocal processed_count
                         # Initialize to prevent UnboundLocalError in error handling
                         first_stage_tasks = []
