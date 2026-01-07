@@ -8,6 +8,7 @@ from ragas.metrics import (
     context_recall,
 )
 from datasets import Dataset
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from dotenv import load_dotenv
 
 # Load environment variables from parent directory .env
@@ -38,9 +39,68 @@ req_metrics = [
     context_recall
 ]
 
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+
+# Configure Qwen/Aliyun LLM and Embeddings
+# We reuse the environment variables loaded by python-dotenv (OPENAI_BASE_URL, OPENAI_API_KEY)
+# But we need to explicitly set the model name from env or default to something valid for Aliyun
+llm_model = os.getenv("OPENAI_MODEL", "qwen-plus")
+embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-v3")
+
+from openai import OpenAI, AsyncOpenAI
+
+# Custom Embeddings Wrapper to handle Aliyun API strictness
+# bypassing LangChain's internal logic which might send incompatible params
+class AliyunOptimizedEmbeddings(OpenAIEmbeddings):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=os.environ["OPENAI_BASE_URL"])
+        self.async_client = AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=os.environ["OPENAI_BASE_URL"])
+
+    def _sanitize(self, texts):
+        cleaned_texts = []
+        for t in texts:
+            if not t:
+                cleaned_texts.append("unknown")
+            elif isinstance(t, str):
+                cleaned_texts.append(t)
+            else:
+                cleaned_texts.append(str(t))
+        return cleaned_texts
+
+    def embed_documents(self, texts, chunk_size=None):
+        cleaned = self._sanitize(texts)
+        # Direct call to OpenAI client, ignoring chunk_size for simplicity (Ragas batches handled upstream usually)
+        if not cleaned:
+            return []
+        resp = self.client.embeddings.create(input=cleaned, model=self.model)
+        return [data.embedding for data in resp.data]
+
+    def embed_query(self, text):
+        clean_text = str(text) if text else "unknown"
+        resp = self.client.embeddings.create(input=[clean_text], model=self.model)
+        return resp.data[0].embedding
+        
+    async def aembed_documents(self, texts, chunk_size=None):
+        cleaned = self._sanitize(texts)
+        if not cleaned:
+            return []
+        resp = await self.async_client.embeddings.create(input=cleaned, model=self.model)
+        return [data.embedding for data in resp.data]
+
+    async def aembed_query(self, text):
+        clean_text = str(text) if text else "unknown"
+        resp = await self.async_client.embeddings.create(input=[clean_text], model=self.model)
+        return resp.data[0].embedding
+
+llm = ChatOpenAI(model=llm_model)
+embeddings = AliyunOptimizedEmbeddings(model=embedding_model)
+
 valid_results = evaluate(
     dataset=dataset,
     metrics=req_metrics,
+    llm=llm,
+    embeddings=embeddings,
 )
 
 print("\nEvaluation Results:")
@@ -48,5 +108,5 @@ print(valid_results)
 
 # Save metrics
 df = valid_results.to_pandas()
-df.to_csv('eval/metrics_report.csv', index=False)
-print("Metrics saved to eval/metrics_report.csv")
+df.to_csv('metrics_report.csv', index=False)
+print("Metrics saved to metrics_report.csv")

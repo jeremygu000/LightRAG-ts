@@ -12,6 +12,11 @@ import path from 'path';
 import { LightRAG } from '../src/index.js';
 import { QueryParam } from '../src/types.js';
 
+console.log('Environment Debug:');
+console.log('OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? `${process.env.OPENAI_API_KEY.substring(0, 5)}...` : 'MISSING');
+console.log('OPENAI_BASE_URL:', process.env.OPENAI_BASE_URL);
+
+
 interface EvalData {
     question: string;
     ground_truth: string;
