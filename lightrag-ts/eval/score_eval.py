@@ -1,6 +1,9 @@
 import json
 import os
 from ragas import evaluate
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 from ragas.metrics import (
     faithfulness,
     answer_relevancy,
@@ -93,7 +96,7 @@ class AliyunOptimizedEmbeddings(OpenAIEmbeddings):
         resp = await self.async_client.embeddings.create(input=[clean_text], model=self.model)
         return resp.data[0].embedding
 
-llm = ChatOpenAI(model=llm_model)
+llm = ChatOpenAI(model=llm_model, temperature=0)
 embeddings = AliyunOptimizedEmbeddings(model=embedding_model)
 
 valid_results = evaluate(
@@ -101,6 +104,7 @@ valid_results = evaluate(
     metrics=req_metrics,
     llm=llm,
     embeddings=embeddings,
+    raise_exceptions=False,
 )
 
 print("\nEvaluation Results:")
