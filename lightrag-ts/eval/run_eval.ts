@@ -56,22 +56,21 @@ async function main() {
     for (const item of dataset) {
         const start = Date.now();
         const result = await rag.query(item.question, {
-            mode: 'hybrid'
+            mode: 'hybrid',
+            cosSimThreshold: 0.4, // Add threshold filtering
         });
         const latency = Date.now() - start;
 
-        // In a real scenario, we extract retrived contexts from the result if available.
-        // Current LightRAG returns just the string answer. 
-        // We might need to modify LightRAG to return contexts for eval purposes, 
-        // or just rely on the answer for now.
-        // Ragas works best if we have 'contexts'.
+        // Retrieve actual contexts from rawData
+        // If rawData is missing (shouldn't be), fallback to empty or prompt context
+        const retrievedContexts = result.rawData?.chunks.map(c => c.content) || [];
 
         // Result is a QueryResult object { response: string, ... }
         // Ragas expects 'answer' as a string
         results.push({
             ...item,
             answer: result.response,
-            contexts: [text1, text2], // Mock contexts for now 
+            contexts: retrievedContexts.length > 0 ? retrievedContexts : [],
             latency_ms: latency
         });
         console.log(`Processed: ${item.question}`);

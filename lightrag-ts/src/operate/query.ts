@@ -104,9 +104,14 @@ async function searchEntities(
     query: string,
     entitiesVdb: BaseVectorStorage,
     graphStorage: BaseGraphStorage,
-    topK: number
+    topK: number,
+    threshold?: number
 ): Promise<Array<GraphNode & { entityName: string; rank: number }>> {
-    const results = await entitiesVdb.query(query, topK);
+    let results = await entitiesVdb.query(query, topK);
+
+    if (threshold !== undefined) {
+        results = results.filter(r => r.score >= threshold);
+    }
 
     if (results.length === 0) {
         return [];
@@ -235,12 +240,17 @@ async function getEntityChunks(
 async function searchChunks(
     query: string,
     chunksVdb: BaseVectorStorage | undefined,
-    topK: number
+    topK: number,
+    threshold?: number
 ): Promise<VectorQueryResult[]> {
     if (!chunksVdb) {
         return [];
     }
-    return chunksVdb.query(query, topK);
+    let results = await chunksVdb.query(query, topK);
+    if (threshold !== undefined) {
+        results = results.filter(r => r.score >= threshold);
+    }
+    return results;
 }
 
 // ==================== Context Building ====================
@@ -392,7 +402,7 @@ export async function kgQuery(
     // Mode-specific search
     if (mode === 'naive' || mode === 'mix') {
         // Direct chunk search
-        const vectorResults = await searchChunks(query, chunksVdb, topK);
+        const vectorResults = await searchChunks(query, chunksVdb, topK, param.cosSimThreshold);
         chunks = vectorResults.map(r => ({
             content: r.data.content || '',
             filePath: (r.data.metadata?.file_path as string) || 'unknown',
@@ -402,7 +412,7 @@ export async function kgQuery(
 
     if (mode === 'local' || mode === 'hybrid' || mode === 'mix') {
         // Entity search
-        entities = await searchEntities(searchQuery, entitiesVdb, graphStorage, topK);
+        entities = await searchEntities(searchQuery, entitiesVdb, graphStorage, topK, param.cosSimThreshold);
 
         // Get related chunks
         const entityChunks = await getEntityChunks(entities, chunksKv);
@@ -412,7 +422,7 @@ export async function kgQuery(
     if (mode === 'global' || mode === 'hybrid' || mode === 'mix') {
         // Relation-based search
         if (entities.length === 0) {
-            entities = await searchEntities(searchQuery, entitiesVdb, graphStorage, topK);
+            entities = await searchEntities(searchQuery, entitiesVdb, graphStorage, topK, param.cosSimThreshold);
         }
         relations = await getRelatedEdges(entities, graphStorage);
     }

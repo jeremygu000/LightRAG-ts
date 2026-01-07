@@ -56,6 +56,8 @@ export interface QueryParam {
     enableRerank?: boolean;
     /** Minimum rerank score threshold */
     minRerankScore?: number;
+    /** Cosine similarity threshold for filtering retrieval results */
+    cosSimThreshold?: number;
 }
 
 /**
