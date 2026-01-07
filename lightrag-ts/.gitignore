@@ -13,6 +13,10 @@ lightrag_eval_data/
 eval/dataset.json
 eval/results.json
 eval/metrics_report.csv
+eval/report_analysis.md
+
+# Default data directory
+lightrag_data/
 
 # System files
 .DS_Store

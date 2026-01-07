@@ -339,7 +339,7 @@ async function callLLMWithCache(
     const response = await llmFunc(prompt, {
         systemPrompt: options.systemPrompt,
         historyMessages: options.historyMessages,
-    });
+    }) as string;
 
     // Save to cache
     if (options.cache) {

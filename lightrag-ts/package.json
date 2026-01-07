@@ -14,6 +14,7 @@
     "type-check": "tsc --noEmit",
     "check": "concurrently -n test,lint,type -c blue,green,yellow \"npm run test\" \"npm run lint\" \"npm run type-check\"",
     "dev": "tsx watch src/index.ts",
+    "start": "tsx src/server.ts",
     "example": "tsx examples/basic-usage.ts",
     "eval:gen": "tsx eval/generate_dataset.ts",
     "eval:run": "tsx eval/run_eval.ts",
@@ -31,8 +32,10 @@
   ],
   "license": "MIT",
   "dependencies": {
+    "@hono/node-server": "^1.19.7",
     "dotenv": "^17.2.3",
     "gpt-tokenizer": "^2.5.0",
+    "hono": "^4.11.3",
     "openai": "^4.70.0"
   },
   "devDependencies": {
