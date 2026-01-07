@@ -1,83 +1,45 @@
 # RAG System Evaluation Report
 
 ## Summary
-The RAG system demonstrates strong **answer relevancy** and **context precision**, indicating that responses are generally relevant to user queries and retrieved documents contain high-signal information. However, there are notable issues with **faithfulness** and **context recall** in certain cases. Specifically, the system sometimes generates plausible but unsupported content (hallucinations), and for some queries, it fails to retrieve all necessary context—especially when fine-grained distinctions or structured knowledge are required.
-
-Overall performance suggests a well-tuned retrieval mechanism but potential over-reliance on internal language model knowledge during generation, particularly when the input context is limited or ambiguous.
-
----
+The RAG system demonstrates strong overall performance across most evaluation metrics. Answer relevancy and context recall are consistently high, indicating that the generated responses are highly relevant to the user queries and that the necessary information is generally retrieved. Context precision is also very high in most cases, showing that the retrieved documents contain mostly relevant content. However, faithfulness scores show some variability, with one instance of significant hallucination or use of external knowledge, which could undermine trust in the system's reliability.
 
 ## Weakness Analysis
+1. **Low Faithfulness in "Harry Potter" Query (0.67)**:  
+   Although the answer correctly identifies J.K. Rowling as the author, the faithfulness score is only ~0.67. This suggests the model may have used prior knowledge rather than strictly relying on the provided context. While the correct fact appears in the first context sentence, the verbose elaboration ("renowned literary work", "worldwide acclaim") likely stems from internal parametric knowledge, reducing faithfulness.
 
-1. **"Who is the author of 'Harry Potter'?" – Low Faithfulness (0.2)**
-   - Despite correct answer and high relevancy, faithfulness is very low.
-   - The model added external knowledge such as "*This information is supported by both the knowledge graph and the document chunk...*" — which was not present in the provided context.
-   - This indicates **hallucination due to overconfidence** or integration of background knowledge not derived from retrieved documents.
-
-2. **"Explain the difference between local and global search in LightRAG." – Low Context Precision & Recall (both 0.0)**
-   - Although faithfulness and answer relevancy are relatively good, **context precision and recall are zero**, meaning the retrieved context lacks the detailed definitions needed.
-   - The reference mentions "1-hop graph neighbors", "relation vectors", and "aggregated entity information" — none of which were in the retrieved context.
-   - Thus, the response was likely **generated using internal parametric knowledge**, not the provided context, leading to poor alignment despite sounding accurate.
-
-3. **General Pattern: Over-generation and Knowledge Injection**
-   - In multiple responses, the model adds explanatory phrases like “this information is supported by…” or elaborates beyond the source material.
-   - These enhancements improve readability but reduce faithfulness and misalign with actual retrieval quality.
-
----
+2. **Very Low Context Precision in "Local vs Global Search" Query (0.0)**:  
+   Despite a perfect faithfulness and high answer relevancy, the context precision drops to 0. This indicates that although the response was accurate and grounded, the retrieved context contained irrelevant information—specifically, the inclusion of "J.K. Rowling wrote Harry Potter"—which has no relevance to the question about LightRAG’s search mechanisms. The retrieval system failed to filter out noise for this query.
 
 ## Optimization Advice
+1. **Improve Retrieval Relevance via Query Rewriting or Filtering**:  
+   Implement query-aware context filtering or re-ranking to remove irrelevant documents (e.g., exclude Harry Potter-related text when asking about LightRAG components). This would directly improve context precision.
 
-1. **Improve Context Enrichment for Complex Queries**
-   - For questions requiring nuanced understanding (e.g., technical differences), ensure retrieval includes more granular, structured data (e.g., schema-aware retrieval from knowledge graphs).
-   - *Action*: Augment retrieval pipeline with multi-hop graph traversal or hybrid search that pulls both direct matches and related entities/relations.
+2. **Constrain Generation to Retrieved Contexts**:  
+   Apply stricter grounding techniques during response generation (e.g., constrained decoding, citation enforcement) to prevent the model from adding externally known facts not present in the context, thereby improving faithfulness.
 
-2. **Apply Faithfulness-Aware Generation Constraints**
-   - Use post-generation filtering or constrained decoding to prevent inclusion of unsupported claims.
-   - *Action*: Integrate a verification step where generated statements are checked against retrieved contexts (e.g., using entailment models or rule-based extractive validation).
-
-3. **Fine-Tune Retrieval Relevance Based on Query Type**
-   - Implement query classification (e.g., factual vs. explanatory) to dynamically adjust retrieval strategy.
-   - *Action*: Route detailed comparison questions to enhanced retrieval modes that prioritize completeness (recall) over speed.
+3. **Enhance Contextual Embeddings with Domain-Specific Fine-Tuning**:  
+   Fine-tune the embedding model on technical RAG-related texts so that semantic similarity better captures domain-specific nuances, improving both retrieval accuracy and relevance.
 
 ---
 
 # RAG 系统评估报告
 
-## 总结
-该 RAG 系统在**答案相关性**和**上下文精确度**方面表现良好，表明其响应通常与用户问题相关，且检索到的文档包含高质量信息。然而，在某些情况下存在明显的**忠实度**和**上下文召回率**问题。具体来说，系统有时会生成看似合理但缺乏支持的内容（即幻觉），尤其当需要细粒度区分或结构化知识时，未能检索到所有必要上下文。
-
-整体性能表明检索机制较为完善，但在生成阶段可能过度依赖语言模型的内部知识，尤其是在输入上下文有限或模糊的情况下。
-
----
+## 概要
+该 RAG 系统在大多数评估指标上表现出色。回答相关性（answer relevancy）和上下文召回率（context recall）持续保持高位，表明生成的回答与用户问题高度相关，并且所需信息基本都被成功检索到。上下文精确度（context precision）在多数情况下也很高，说明检索出的文档内容大多相关。然而，忠实度（faithfulness）得分存在波动，其中一次出现了明显的幻觉或使用了外部知识，可能影响系统可靠性。
 
 ## 弱点分析
+1. **“哈利·波特”查询中的低忠实度（0.67）**：  
+   尽管答案正确指出作者是 J.K. 罗琳，但忠实度仅为约 0.67。这表明模型可能依赖了自身先验知识，而非完全基于提供的上下文作答。虽然第一句上下文中确实提到了正确事实，但后续扩展描述（如“著名文学作品”、“全球赞誉”）很可能来自模型内部参数知识，从而降低了忠实度。
 
-1. **“《哈利·波特》的作者是谁？”——忠实度低（0.2）**
-   - 尽管答案正确且相关性高，但忠实度极低。
-   - 模型添加了如“此信息由知识图谱和文档块共同支持”等未出现在原始上下文中的内容。
-   - 这表明存在**因过度自信而导致的幻觉**，或在生成过程中引入了外部背景知识。
-
-2. **“解释 LightRAG 中局部搜索与全局搜索的区别。”——上下文精确度与召回率均为 0.0**
-   - 虽然忠实度和答案相关性尚可，但上下文精确度和召回率为零，说明检索到的内容缺少所需的详细定义。
-   - 参考答案中提到“1跳邻居”、“关系向量”、“聚合实体信息”，这些均未出现在检索结果中。
-   - 因此，该回答很可能是**基于模型参数记忆而非实际检索内容生成**，导致表面准确但与上下文脱节。
-
-3. **普遍现象：过度生成与知识注入**
-   - 多个回答中，模型添加了诸如“此信息由……支持”之类的解释性语句，超出了所提供上下文的范围。
-   - 这些补充提升了可读性，却降低了忠实度，并使输出与真实检索质量不一致。
-
----
+2. **“局部与全局搜索”查询中极低的上下文精确度（0.0）**：  
+   尽管回答忠实度为满分且回答相关性很高，但上下文精确度却为 0。这说明尽管回答准确并有据可依，但检索到的内容中包含无关信息——特别是“J.K. 罗琳写了哈利·波特”这一条与当前问题完全无关。检索系统未能过滤噪声，导致信号-噪音比极差。
 
 ## 优化建议
+1. **通过查询重写或过滤提升检索相关性**：  
+   引入基于查询感知的上下文过滤机制或重新排序策略，剔除无关文档（例如，在询问 LightRAG 搜索机制时排除哈利·波特相关内容），以直接提升上下文精确度。
 
-1. **增强复杂查询的上下文丰富性**
-   - 对于需要深入理解的问题（例如技术差异），确保检索结果包含更细粒度、结构化的数据（如知识图谱中的多跳信息）。
-   - *措施*：通过多跳图遍历或混合搜索增强检索流程，同时获取直接匹配项及相关实体/关系。
+2. **限制生成内容仅基于检索到的上下文**：  
+   在生成阶段采用更严格的约束技术（如受限解码、强制引用机制），防止模型添加未出现在上下文中的外部已知事实，从而提高忠实度。
 
-2. **采用忠实度感知的生成约束**
-   - 使用生成后过滤或受限解码机制，防止生成无依据的声明。
-   - *措施*：引入验证步骤，使用蕴含模型或基于规则的抽取方法检查生成语句是否能被检索内容支持。
-
-3. **根据查询类型微调检索相关性**
-   - 实现查询分类（如事实型 vs 解释型），动态调整检索策略。
-   - *措施*：将涉及对比或解释的问题路由至优先考虑完整性的检索模式，以提高召回率。
+3. **使用领域特定微调增强上下文嵌入效果**：  
+   在 RAG 相关的技术文本上对嵌入模型进行微调，使语义相似度能更好捕捉专业领域的细微差别，进而提升检索准确性和相关性。

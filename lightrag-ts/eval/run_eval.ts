@@ -57,7 +57,7 @@ async function main() {
         const start = Date.now();
         const result = await rag.query(item.question, {
             mode: 'hybrid',
-            cosSimThreshold: 0.4, // Add threshold filtering
+            cosSimThreshold: 0.1, // Lower threshold to avoid filtering relevant chunks
         });
         const latency = Date.now() - start;
 
