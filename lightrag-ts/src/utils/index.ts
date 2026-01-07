@@ -217,6 +217,38 @@ export function fixTupleDelimiterCorruption(text: string, expectedDelimiter: str
 }
 
 /**
+ * Parse JSON from LLM response, handling markdown code blocks and extra text.
+ *
+ * @param text - Raw LLM response text
+ * @returns Parsed object or null if parsing fails
+ */
+export function parseJsonFromLlmResponse(text: string): any {
+    if (!text) return null;
+    let clean = text.trim();
+
+    // Remove markdown code blocks (```json ... ```)
+    // We remove the identifying markers but keep the content
+    clean = clean.replace(/```(?:json)?|```/gi, '').trim();
+
+    // Find the first '{' and last '}' to isolate the JSON object
+    const firstOpen = clean.indexOf('{');
+    const lastClose = clean.lastIndexOf('}');
+
+    if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
+        clean = clean.substring(firstOpen, lastClose + 1);
+    } else {
+        // No object detected
+        return null;
+    }
+
+    try {
+        return JSON.parse(clean);
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Truncate list by total token size.
  *
  * @param items - Array of items to truncate

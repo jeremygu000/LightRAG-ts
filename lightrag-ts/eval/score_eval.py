@@ -10,7 +10,7 @@ from ragas.metrics import (
 from datasets import Dataset
 
 # Load results
-with open('eval/results.json', 'r') as f:
+with open('results.json', 'r') as f:
     results = json.load(f)
 
 # Prepare data for Ragas

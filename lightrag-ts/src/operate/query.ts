@@ -29,6 +29,7 @@ import {
     splitStringByMultiMarkers,
     truncateListByTokenSize,
     GPTTokenizer,
+    parseJsonFromLlmResponse,
 } from '../utils/index.js';
 
 // ==================== Types ====================
@@ -74,16 +75,15 @@ export async function extractKeywords(
         const response = await llmFunc(prompt);
 
         // Parse JSON response
-        const jsonMatch = response.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            logger.warn('Failed to extract JSON from keyword response');
-            return { highLevel: [], lowLevel: [] };
-        }
-
-        const parsed = JSON.parse(jsonMatch[0]) as {
+        const parsed = parseJsonFromLlmResponse(response) as {
             high_level_keywords?: string[];
             low_level_keywords?: string[];
-        };
+        } | null;
+
+        if (!parsed) {
+            logger.warn(`Failed to extract JSON from keyword response. Raw response: ${response.substring(0, 200)}...`);
+            return { highLevel: [], lowLevel: [] };
+        }
 
         return {
             highLevel: parsed.high_level_keywords || [],
