@@ -41,6 +41,40 @@ This project implements the full LightRAG pipeline in TypeScript, including:
     export COHERE_API_KEY="..."
     ```
 
+## ⚙️ Configuration
+
+LightRAG-ts supports OpenAI-compatible APIs (like Aliyun Qwen) and various Rerank providers.
+
+### Using Aliyun Qwen (通义千问)
+
+Update your `.env` file with DashScope settings:
+
+```bash
+# LLM Configuration
+OPENAI_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
+OPENAI_API_KEY="sk-..."    # Your DashScope API Key
+OPENAI_MODEL="qwen-plus"   # Recommended for Graph extraction
+
+# Embedding Configuration
+OPENAI_EMBEDDING_MODEL="text-embedding-v3"
+```
+
+### Rerank Providers
+
+Configure `RERANK_BINDING` in `.env`:
+
+- **Aliyun**: `RERANK_BINDING="aliyun"`, `DASHSCOPE_API_KEY="..."` (Default model: `gte-rerank-v2`)
+- **Jina AI**: `RERANK_BINDING="jina"`, `JINA_API_KEY="..."`
+- **Cohere**: `RERANK_BINDING="cohere"`, `COHERE_API_KEY="..."`
+
+## 💾 Storage & database
+
+By default, LightRAG-ts uses **File-based Storage** (JSON key-value stores and in-memory graphs persisted to disk).
+
+- **No external database (like Neo4j, Milvus, or PostgreSQL) is required.**
+- **No Docker setup is needed** to run this project.
+- Data is stored locally in the `lightrag_data` directory (configurable via `workingDir`).
+
 ## 🚀 Usage
 
 Run the basic example to see LightRAG in action:
