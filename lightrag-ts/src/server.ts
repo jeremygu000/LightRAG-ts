@@ -16,6 +16,7 @@ async function getRag() {
     if (!rag) {
         rag = new LightRAG({
             workingDir: process.env.RAG_WORKING_DIR || './lightrag_data',
+            graphStorage: process.env.GRAPH_STORAGE,
         });
         await rag.initialize();
     }

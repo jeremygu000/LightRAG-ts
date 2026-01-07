@@ -1,21 +1,37 @@
 services:
-  lightrag:
-    container_name: lightrag
-    image: ghcr.io/hkuds/lightrag:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-      tags:
-        - ghcr.io/hkuds/lightrag:latest
+  # lightrag:
+  #   container_name: lightrag
+  #   image: ghcr.io/hkuds/lightrag:latest
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #     tags:
+  #       - ghcr.io/hkuds/lightrag:latest
+  #   ports:
+  #     - "${PORT:-9621}:9621"
+  #   volumes:
+  #     - ./data/rag_storage:/app/data/rag_storage
+  #     - ./data/inputs:/app/data/inputs
+  #     - ./config.ini:/app/config.ini
+  #     - ./.env:/app/.env
+  #   env_file:
+  #     - .env
+  #   restart: unless-stopped
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+
+  neo4j:
+    image: neo4j:5.11.0
+    container_name: neo4j
     ports:
-      - "${PORT:-9621}:9621"
+      - "7474:7474" # HTTP
+      - "7687:7687" # Bolt
+    environment:
+      NEO4J_AUTH: neo4j/password
+      NEO4J_apoc_export_file_enabled: "true"
+      NEO4J_apoc_import_file_enabled: "true"
+      NEO4J_apoc_import_file_use__neo4j__config: "true"
+      NEO4J_PLUGINS: '["apoc"]'
     volumes:
-      - ./data/rag_storage:/app/data/rag_storage
-      - ./data/inputs:/app/data/inputs
-      - ./config.ini:/app/config.ini
-      - ./.env:/app/.env
-    env_file:
-      - .env
-    restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - ./data/neo4j_data:/data
+      - ./data/neo4j_plugins:/plugins

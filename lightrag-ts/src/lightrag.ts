@@ -22,6 +22,7 @@ import {
     BaseKVStorage,
     BaseVectorStorage,
     BaseGraphStorage,
+    Neo4jGraphStorage,
 } from './storage/index.js';
 import { createOpenAIComplete, createOpenAIEmbed } from './llm/index.js';
 import { chunkingByTokenSize, addDocIdToChunks, extractFromChunks, mergeEntityDescriptions, mergeRelationDescriptionsSimple, mergeSourceIds } from './operate/index.js';
@@ -71,6 +72,8 @@ export class LightRAG {
     private entityTypes: string[];
     private language: string;
     private enableLlmCache: boolean;
+    private graphStorageType: string;
+    private neo4jConfig?: { uri?: string; user?: string; password?: string };
 
     private initialized: boolean = false;
 
@@ -100,6 +103,10 @@ export class LightRAG {
 
         // Cache config
         this.enableLlmCache = config.enableLlmCache ?? true;
+
+        // Storage config
+        this.graphStorageType = config.graphStorage || 'memory';
+        this.neo4jConfig = config.neo4jConfig;
     }
 
     /**
@@ -157,10 +164,17 @@ export class LightRAG {
         });
 
         // Initialize graph storage
-        this.graphStorage = new MemoryGraphStorage({
-            ...storageConfig,
-            storageName: 'graph'
-        });
+        if (this.graphStorageType === 'neo4j') {
+            this.graphStorage = new Neo4jGraphStorage({
+                ...storageConfig,
+                ...this.neo4jConfig
+            });
+        } else {
+            this.graphStorage = new MemoryGraphStorage({
+                ...storageConfig,
+                storageName: 'graph_data'
+            });
+        }
 
         // Initialize all
         await Promise.all([
