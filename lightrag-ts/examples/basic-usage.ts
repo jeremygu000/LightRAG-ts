@@ -55,7 +55,7 @@ async function main() {
         });
         console.log('--- Hybrid Query ---');
         console.log('Q: Who was Albert Einstein?');
-        console.log('A:', result1.response.substring(0, 500) + '...\n');
+        console.log('A:', (result1.response as string).substring(0, 500) + '...\n');
 
         // Local mode - focuses on specific entities
         const result2 = await rag.query('Where was Einstein born?', {
@@ -63,7 +63,7 @@ async function main() {
         });
         console.log('--- Local Query ---');
         console.log('Q: Where was Einstein born?');
-        console.log('A:', result2.response.substring(0, 500) + '...\n');
+        console.log('A:', (result2.response as string).substring(0, 500) + '...\n');
 
         // Naive mode - direct chunk search without KG
         const result3 = await rag.query('What prize did Einstein receive?', {
@@ -71,7 +71,7 @@ async function main() {
         });
         console.log('--- Naive Query ---');
         console.log('Q: What prize did Einstein receive?');
-        console.log('A:', result3.response.substring(0, 500) + '...\n');
+        console.log('A:', (result3.response as string).substring(0, 500) + '...\n');
 
         // Get knowledge graph
         console.log('📊 Knowledge Graph:');
