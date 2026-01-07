@@ -91,7 +91,7 @@ async function main() {
             topK: 5, // Limit topK for small dataset
             cosSimThreshold: 0.2, // Lower threshold to ensure recall (avoid missing chunks like GraphRAG)
             enableRerank: true,
-            minRerankScore: 0.4, // Stricter rerank threshold
+            minRerankScore: 0.2, // Lowered to improve Recall while maintaining Precision
             temperature: 0.0, // Ensure deterministic output
         });
         const latency = Date.now() - start;
