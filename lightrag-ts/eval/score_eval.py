@@ -110,3 +110,44 @@ print(valid_results)
 df = valid_results.to_pandas()
 df.to_csv('metrics_report.csv', index=False)
 print("Metrics saved to metrics_report.csv")
+
+# --- Automated Analysis with Qwen ---
+print("\nGenerating analysis report with LLM...")
+
+csv_content = df.to_csv(index=False)
+
+analysis_prompt = f"""
+You remain an expert Data Scientist and RAG System Evaluator.
+Please analyze the following RAG evaluation metrics report (CSV format).
+
+### Metrics Explanations:
+- **Faithfulness**: 0-1. How much the answer is derived purely from context. Low score = Hallucination.
+- **Answer Relevancy**: 0-1. How relevant the answer is to the question.
+- **Context Precision**: 0-1. Signal-to-noise ratio in retrieved docs.
+- **Context Recall**: 0-1. Whether all necessary information was retrieved.
+
+### Report Data:
+```csv
+{csv_content}
+```
+
+### Task:
+1.  **Summary**: Give a high-level summary of the system's performance.
+2.  **Weakness Analysis**: Identify specific questions where metrics are low (e.g. Low Faithfulness) and explain why (e.g. AI added external knowledge).
+3.  **Optimization Advice**: Suggest 2-3 concrete actions to improve the scores based on this data.
+
+Please output in Markdown format.
+**IMPORTANT: Provide the response in BOTH English and Chinese.**
+"""
+
+# Invoke the LLM (reuse the 'llm' instance configured above)
+from langchain_core.messages import HumanMessage
+try:
+    response = llm.invoke([HumanMessage(content=analysis_prompt)])
+    analysis = response.content
+
+    with open('report_analysis.md', 'w') as f:
+        f.write(analysis)
+    print("Analysis saved to report_analysis.md")
+except Exception as e:
+    print(f"Error generating analysis: {e}")
