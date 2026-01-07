@@ -1,6 +1,9 @@
 import json
 import os
 from ragas import evaluate
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 from ragas.metrics import (
     faithfulness,
     answer_relevancy,
@@ -93,7 +96,33 @@ class AliyunOptimizedEmbeddings(OpenAIEmbeddings):
         resp = await self.async_client.embeddings.create(input=[clean_text], model=self.model)
         return resp.data[0].embedding
 
-llm = ChatOpenAI(model=llm_model)
+
+# Wrapper to fix common JSON errors from LLM (like escaped single quotes)
+class FixJsonChatOpenAI(ChatOpenAI):
+    def _fix_json(self, text: str) -> str:
+        if not text:
+            return ""
+        # Fix invalid escape for single quote: \' -> '
+        # Also fix escaped newlines if they break json in some contexts, but mostly \' is the culprit
+        return text.replace(r"\'", "'")
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        result = super()._generate(messages, stop, run_manager, **kwargs)
+        for gen in result.generations:
+            gen.text = self._fix_json(gen.text)
+            if hasattr(gen, 'message'):
+                gen.message.content = self._fix_json(gen.message.content)
+        return result
+
+    async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+        result = await super()._agenerate(messages, stop, run_manager, **kwargs)
+        for gen in result.generations:
+            gen.text = self._fix_json(gen.text)
+            if hasattr(gen, 'message'):
+                gen.message.content = self._fix_json(gen.message.content)
+        return result
+
+llm = FixJsonChatOpenAI(model=llm_model, temperature=0)
 embeddings = AliyunOptimizedEmbeddings(model=embedding_model)
 
 valid_results = evaluate(
@@ -101,6 +130,7 @@ valid_results = evaluate(
     metrics=req_metrics,
     llm=llm,
     embeddings=embeddings,
+    raise_exceptions=False,
 )
 
 print("\nEvaluation Results:")

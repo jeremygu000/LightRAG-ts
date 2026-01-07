@@ -103,7 +103,7 @@ async function main() {
         console.log(`Processed: ${item.question}`);
     }
 
-    const outputPath = path.join(process.cwd(), 'eval', 'results_db.json');
+    const outputPath = path.join(process.cwd(), 'eval', 'results.json');
     await fs.writeFile(outputPath, JSON.stringify(results, null, 2));
     console.log(`Results saved to ${outputPath}`);
 }

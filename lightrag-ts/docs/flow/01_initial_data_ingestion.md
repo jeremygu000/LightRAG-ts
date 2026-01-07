@@ -100,8 +100,26 @@ graph TD
 
 **主要函数**: `mergeRelationDescriptionsSimple()`, `graphStorage.upsertEdge()`, `relationsVdb.upsert()`
 
-- **权重累加**: 如果关系已存在，累加权重。
-- **描述合并**: 简单的文本拼接或 LLM 摘要。
+- **权重累加 (Weight Aggregation)**: 如果关系已存在，系统会将新关系的权重累加到现有权重上 (`old_weight + new_weight`)。这确保了多次提及的关系在图中拥有更高的权重，反映其强联系。
+- **描述合并 (Description Concatenation)**: 将新的关系描述追加到现有描述之后。这样做是为了保留不同文档中提供的上下文信息，防止信息丢失。
+- **源码 ID 合并**: 更新 `source_id` 字段，记录所有贡献该关系的 Chunk ID。
+
+#### Edge Merging Logic (Code Detail)
+
+```typescript
+// src/lightrag.ts
+await this.graphStorage.upsertEdge(srcId, tgtId, {
+  weight: ((existingEdge?.weight as number) || 0) + weight,
+  description: existingEdge?.description
+    ? `${existingEdge.description} ${description}`
+    : description,
+  keywords: existingEdge?.keywords
+    ? `${existingEdge.keywords}, ${keywords}`
+    : keywords,
+  source_id: mergedSourceId,
+});
+```
+
 - **图存储**: 在 Graph 数据库中创建或更新边（Edge）。
 - **向量存储**: 对关系的描述进行向量化，存入 `relationsVdb`。这一步是 LightRAG 的特色，允许通过向量搜索直接检索关系。
 

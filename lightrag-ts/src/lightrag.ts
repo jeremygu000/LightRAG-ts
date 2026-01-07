@@ -355,10 +355,22 @@ export class LightRAG {
                     const sourceIds = relList.map(r => r.sourceId).join(GRAPH_FIELD_SEP);
 
                     // Update graph
+                    // Update graph
                     const existingEdge = await this.graphStorage.getEdge(srcId, tgtId);
                     const existingSourceId = (existingEdge?.source_id as string) || '';
                     const mergedSourceId = mergeSourceIds(existingSourceId, sourceIds);
 
+                    /**
+                     * Edge Merging Logic:
+                     * 
+                     * 1. Weight Aggregation:
+                     *    Accrue weights from multiple occurrences to reflect relationship strength.
+                     *    ((existingEdge?.weight as number) || 0) + weight
+                     * 
+                     * 2. Description/Keywords Concatenation:
+                     *    Merge text properties to preserve accumulated context from different documents.
+                     *    Prevents information loss when the same relationship is described differently.
+                     */
                     await this.graphStorage.upsertEdge(srcId, tgtId, {
                         weight: ((existingEdge?.weight as number) || 0) + weight,
                         description: existingEdge?.description
