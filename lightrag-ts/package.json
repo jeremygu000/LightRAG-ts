@@ -14,7 +14,11 @@
     "type-check": "tsc --noEmit",
     "check": "concurrently -n test,lint,type -c blue,green,yellow \"npm run test\" \"npm run lint\" \"npm run type-check\"",
     "dev": "tsx watch src/index.ts",
-    "example": "tsx examples/basic-usage.ts"
+    "example": "tsx examples/basic-usage.ts",
+    "eval:gen": "tsx eval/generate_dataset.ts",
+    "eval:run": "tsx eval/run_eval.ts",
+    "eval:score": "cd eval && uv run score_eval.py",
+    "eval": "npm run eval:gen && npm run eval:run && npm run eval:score"
   },
   "keywords": [
     "rag",

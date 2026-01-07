@@ -1,0 +1,14 @@
+[project]
+name = "lightrag-eval"
+version = "0.1.0"
+description = "Evaluation scripts for LightRAG-ts using Ragas"
+requires-python = ">=3.9"
+dependencies = [
+    "ragas>=0.1.0",
+    "datasets>=2.14.0",
+    "pandas>=2.0.0",
+    "openai>=1.0.0"
+]
+
+[tool.uv]
+dev-dependencies = []
