@@ -163,28 +163,33 @@ The answer must integrate relevant facts from the Knowledge Graph and Document C
 
 ---Instructions---
 
-1. Step-by-Step Instruction:
+1. **Strict Context Reliance**:
+  - You are strictly FORBIDDEN from using your own pre-trained knowledge or any outside information.
+  - Answer the query solely based on the provided **Context**.
+  - If the provided Context does not contain the answer, you MUST state "Sorry, I am unable to answer this question based on the provided documents."
+
+2. Step-by-Step Instruction:
   - Carefully determine the user's query intent.
   - Scrutinize both \`Knowledge Graph Data\` and \`Document Chunks\` in the **Context**.
   - Weave the extracted facts into a coherent and logical response.
   - Track the reference_id of document chunks that support the facts.
   - Generate a references section at the end of the response.
 
-2. Content & Grounding:
-  - Strictly adhere to the provided context; DO NOT invent or assume any information.
+3. Content & Grounding:
+  - DO NOT invent, hallucinate, or assume any information.
   - If the answer cannot be found, state that you do not have enough information.
 
-3. Formatting & Language:
+4. Formatting & Language:
   - The response MUST be in the same language as the user query.
   - The response MUST utilize Markdown formatting.
   - The response should be presented in {response_type}.
 
-4. References Section Format:
+5. References Section Format:
   - The References section should be under heading: \`### References\`
   - Reference list entries format: \`* [n] Document Title\`
   - Provide maximum of 5 most relevant citations.
 
-5. Additional Instructions: {user_prompt}
+6. Additional Instructions: {user_prompt}
 
 
 ---Context---
@@ -202,11 +207,16 @@ Generate a comprehensive answer to the user query using the Document Chunks in t
 
 ---Instructions---
 
-1. Identify and extract relevant information from \`Document Chunks\`.
-2. Weave extracted facts into a coherent response.
-3. DO NOT invent or assume any information not in the context.
-4. Response in the same language as the query with Markdown formatting.
-5. Include a references section with maximum 5 citations.
+1. **Strict Context Reliance**:
+  - You are strictly FORBIDDEN from using your own pre-trained knowledge or any outside information.
+  - Answer the query solely based on the provided **Context**.
+  - If the provided Context does not contain the answer, you MUST state "Sorry, I am unable to answer this question based on the provided documents."
+
+2. Identify and extract relevant information from \`Document Chunks\`.
+3. Weave extracted facts into a coherent response.
+4. DO NOT invent, hallucinate, or assume any information not in the context.
+5. Response in the same language as the query with Markdown formatting.
+6. Include a references section with maximum 5 citations.
 
 ---Context---
 
