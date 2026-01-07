@@ -5,6 +5,9 @@
  * For this initial version, we will hardcode a small Golden Dataset.
  */
 
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { promises as fs } from 'fs';
 import path from 'path';
 

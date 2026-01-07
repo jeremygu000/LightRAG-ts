@@ -4,6 +4,9 @@
  * This script runs LightRAG against the dataset and saves the results.
  */
 
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { promises as fs } from 'fs';
 import path from 'path';
 import { LightRAG } from '../src/index.js';
@@ -63,10 +66,12 @@ async function main() {
         // or just rely on the answer for now.
         // Ragas works best if we have 'contexts'.
 
+        // Result is a QueryResult object { response: string, ... }
+        // Ragas expects 'answer' as a string
         results.push({
             ...item,
-            answer: result,
-            contexts: [text1, text2], // Mock contexts for now as query() doesn't return them yet
+            answer: result.response,
+            contexts: [text1, text2], // Mock contexts for now 
             latency_ms: latency
         });
         console.log(`Processed: ${item.question}`);

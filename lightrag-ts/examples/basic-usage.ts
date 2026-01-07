@@ -2,6 +2,9 @@
  * LightRAG TypeScript - Basic Usage Example
  */
 
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { LightRAG } from '../src/index.js';
 
 async function main() {
