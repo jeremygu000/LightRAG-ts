@@ -22,7 +22,7 @@ import {
     BaseGraphStorage,
 } from './storage/index.js';
 import { createOpenAIComplete, createOpenAIEmbed } from './llm/index.js';
-import { chunkingByTokenSize, addDocIdToChunks, extractFromChunks, mergeEntityDescriptions, mergeRelationDescriptions, mergeSourceIds } from './operate/index.js';
+import { chunkingByTokenSize, addDocIdToChunks, extractFromChunks, mergeEntityDescriptions, mergeRelationDescriptionsSimple, mergeSourceIds } from './operate/index.js';
 import { kgQuery } from './operate/query.js';
 import {
     DEFAULT_CHUNK_TOKEN_SIZE,
@@ -297,7 +297,7 @@ export class LightRAG {
 
                 // Merge and store entities
                 for (const [entityName, entityList] of entities.entries()) {
-                    const description = mergeEntityDescriptions(entityList);
+                    const { description } = await mergeEntityDescriptions(entityList, {}, this.llmModelFunc);
                     const sourceIds = entityList.map(e => e.sourceId).join(GRAPH_FIELD_SEP);
                     const entityType = entityList[0].entityType;
 
@@ -329,7 +329,7 @@ export class LightRAG {
                 // Merge and store relations
                 for (const [relKey, relList] of relations.entries()) {
                     const [srcId, tgtId] = relKey.split(GRAPH_FIELD_SEP);
-                    const { description, keywords, weight } = mergeRelationDescriptions(relList);
+                    const { description, keywords, weight } = mergeRelationDescriptionsSimple(relList);
                     const sourceIds = relList.map(r => r.sourceId).join(GRAPH_FIELD_SEP);
 
                     // Update graph
