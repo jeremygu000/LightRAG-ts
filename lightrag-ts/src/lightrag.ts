@@ -492,6 +492,7 @@ export class LightRAG {
         ]);
 
         logger.info('All data dropped');
+        this.initialized = false;
     }
 
     /**

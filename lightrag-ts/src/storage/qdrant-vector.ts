@@ -217,7 +217,12 @@ export class QdrantVectorStorage implements BaseVectorStorage {
     }
 
     async drop(): Promise<{ status: string; message: string }> {
-        await this.client.deleteCollection(this.collectionName);
+        try {
+            await this.client.deleteCollection(this.collectionName);
+        } catch (e) {
+            // Ignore if collection not found
+        }
+        this.initialized = false;
         return { status: 'success', message: 'Qdrant collection deleted' };
     }
 }
