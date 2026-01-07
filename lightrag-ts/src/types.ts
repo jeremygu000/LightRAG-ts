@@ -428,18 +428,33 @@ export interface LightRAGConfig {
     workingDir?: string;
     /** Namespace/workspace for data isolation */
     namespace?: string;
-    /** KV storage implementation name */
+    /** KV storage implementation name ('json' | 'redis') */
     kvStorage?: string;
-    /** Vector storage implementation name */
+    /** Vector storage implementation name ('memory' | 'qdrant') */
     vectorStorage?: string;
     /** Graph storage implementation name ('memory' | 'neo4j') */
     graphStorage?: string;
+
     /** Neo4j configuration (if graphStorage is 'neo4j') */
     neo4jConfig?: {
         uri?: string;
         user?: string;
         password?: string;
     };
+
+    /** Redis configuration (if kvStorage is 'redis') */
+    redisConfig?: {
+        host?: string;
+        port?: number;
+        password?: string;
+    };
+
+    /** Qdrant configuration (if vectorStorage is 'qdrant') */
+    qdrantConfig?: {
+        url?: string;
+        apiKey?: string;
+    };
+
     /** Document status storage implementation name */
     docStatusStorage?: string;
 
