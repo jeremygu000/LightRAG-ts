@@ -14,7 +14,7 @@ function getOpenAIClient(config?: LLMConfig): OpenAI {
     if (config?.apiKey || config?.baseUrl) {
         return new OpenAI({
             apiKey: config.apiKey || process.env.OPENAI_API_KEY,
-            baseURL: config.baseUrl,
+            baseURL: config.baseUrl || process.env.OPENAI_BASE_URL,
             timeout: config.timeout || 180000,
         });
     }
@@ -22,6 +22,7 @@ function getOpenAIClient(config?: LLMConfig): OpenAI {
     if (!defaultClient) {
         defaultClient = new OpenAI({
             apiKey: process.env.OPENAI_API_KEY,
+            baseURL: process.env.OPENAI_BASE_URL,
             timeout: 180000,
         });
     }

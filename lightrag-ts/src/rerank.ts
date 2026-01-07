@@ -448,8 +448,8 @@ export async function aliyunRerank(
 ): Promise<RerankResult[]> {
     const {
         apiKey = process.env.DASHSCOPE_API_KEY || process.env.RERANK_BINDING_API_KEY,
-        model = 'gte-rerank-v2',
-        baseUrl = 'https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank',
+        model = process.env.RERANK_MODEL || 'gte-rerank-v2',
+        baseUrl = process.env.RERANK_BASE_URL || 'https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank',
         topN,
         aggregation = 'max',
     } = options;
