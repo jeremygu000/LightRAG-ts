@@ -180,6 +180,8 @@ The answer must integrate relevant facts from the Knowledge Graph and Document C
   - DO NOT invent, hallucinate, or assume any information.
   - DO NOT use any outside knowledge even if you know the answer (e.g. general world knowledge).
   - DO NOT add meta-commentary about the retrieval process.
+  - DO NOT add any adjectives, descriptions, or background information NOT explicitly stated in the context (e.g., "popular", "famous", "worldwide acclaimed", "influential").
+  - Be CONCISE. Only state facts directly from the context.
   - If the answer cannot be found in the context, your answer MUST be: "Sorry, I am unable to answer this question based on the provided documents."
 
 4. Formatting & Language:

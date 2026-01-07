@@ -89,7 +89,7 @@ async function main() {
         const result = await rag.query(item.question, {
             mode: 'hybrid',
             topK: 5, // Limit topK for small dataset
-            cosSimThreshold: 0.4, // Stricter similarity threshold
+            cosSimThreshold: 0.2, // Lower threshold to ensure recall (avoid missing chunks like GraphRAG)
             enableRerank: true,
             minRerankScore: 0.4, // Stricter rerank threshold
             temperature: 0.0, // Ensure deterministic output
