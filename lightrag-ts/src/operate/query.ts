@@ -31,6 +31,7 @@ import {
     GPTTokenizer,
     parseJsonFromLlmResponse,
 } from '../utils/index.js';
+import { aliyunRerank } from '../rerank.js';
 
 // ==================== Types ====================
 
@@ -449,6 +450,32 @@ export async function kgQuery(
         seenChunkIds.add(c.chunkId);
         return true;
     });
+
+    // Apply reranking if enabled
+    if (param.enableRerank && chunks.length > 1) {
+        logger.info(`Reranking ${chunks.length} chunks...`);
+        try {
+            const chunkContents = chunks.map(c => c.content);
+            const rerankResults = await aliyunRerank(query, chunkContents, {
+                apiKey: process.env.OPENAI_API_KEY,
+                topN: param.topK || DEFAULT_TOP_K,
+                model: process.env.RERANK_MODEL || 'gte-rerank',
+            });
+
+            // Filter by minRerankScore if provided
+            const threshold = param.minRerankScore ?? 0.1;
+            const filteredIndices = rerankResults
+                .filter(r => r.relevanceScore >= threshold)
+                .map(r => r.index);
+
+            // Reorder chunks based on rerank scores
+            const rerankedChunks = filteredIndices.map(i => chunks[i]);
+            chunks = rerankedChunks;
+            logger.info(`Reranking complete: ${chunks.length} chunks after filtering (threshold=${threshold})`);
+        } catch (error) {
+            logger.warn(`Reranking failed, using original order: ${error}`);
+        }
+    }
 
     // Build context
     const context = buildQueryContext(entities, relations, chunks, param);

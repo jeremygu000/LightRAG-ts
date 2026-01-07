@@ -41,9 +41,16 @@ async function main() {
     // Insert some data for the specific test cases if needed
     // For now, we assume the user will run this against an existing index or we mock it.
     // Let's insert some context related to the golden dataset.
+    // Let's insert some context related to the golden dataset.
     const text1 = "J.K. Rowling wrote Harry Potter.";
     const text2 = "LightRAG is a RAG system using Graphs and Vectors. Local search is for details, Global search is for summaries.";
-    await rag.insert([text1, text2]);
+    const text3 = "J.R.R. Tolkien wrote 'The Lord of the Rings'.";
+    const text4 = "GraphRAG by Microsoft uses community detection for summaries.";
+    const text5 = "Local Search in SEO helps businesses appear in local map packs.";
+    const text6 = "Vector databases (like Milvus/Pinecone) are essential for similarity search.";
+    const text7 = "Global warming affects global climate patterns.";
+
+    await rag.insert([text1, text2, text3, text4, text5, text6, text7]);
 
     // Load dataset
     const datasetPath = path.join(process.cwd(), 'eval', 'dataset.json');
@@ -57,7 +64,9 @@ async function main() {
         const start = Date.now();
         const result = await rag.query(item.question, {
             mode: 'hybrid',
-            cosSimThreshold: 0.1, // Lower threshold to avoid filtering relevant chunks
+            cosSimThreshold: 0.1, // Relaxed threshold for initial retrieval
+            enableRerank: true,   // Enable Rerank to filter the noise
+            minRerankScore: 0.01, // Very conservative rerank threshold
         });
         const latency = Date.now() - start;
 

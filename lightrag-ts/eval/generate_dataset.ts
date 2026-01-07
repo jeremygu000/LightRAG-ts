@@ -28,6 +28,18 @@ const GOLDEN_DATASET: EvalData[] = [
     {
         question: "Explain the difference between local and global search in LightRAG.",
         ground_truth: "Local search focuses on specific entities and details using vector search and 1-hop graph neighbors. Global search focuses on broader topics using relation vectors and aggregated entity information."
+    },
+    {
+        question: "Who wrote 'The Lord of the Rings'?",
+        ground_truth: "J.R.R. Tolkien wrote 'The Lord of the Rings'."
+    },
+    {
+        question: "How does GraphRAG differ from LightRAG?",
+        ground_truth: "GraphRAG is a system by Microsoft that uses community detection. LightRAG uses a dual-level retrieval (local/global) system. Key difference is LightRAG's ability to handle incremental updates and fast retrieval without heavy community clustering."
+    },
+    {
+        question: "What is 'Local Search' in the context of SEO?",
+        ground_truth: "In SEO, Local Search refers to optimizing a website to be found in local search results, typically for brick-and-mortar businesses."
     }
 ];
 
