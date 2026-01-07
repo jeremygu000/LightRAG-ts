@@ -50,7 +50,7 @@ export interface CompletionOptions {
 export async function openaiComplete(
     prompt: string,
     options: CompletionOptions = {}
-): Promise<string> {
+): Promise<string | AsyncIterable<string>> {
     const client = getOpenAIClient({
         apiKey: options.apiKey,
         baseUrl: options.baseUrl,
@@ -85,7 +85,28 @@ export async function openaiComplete(
         content: prompt,
     });
 
-    logger.debug(`OpenAI request: model=${model}, messages=${messages.length}`);
+    logger.debug(`OpenAI request: model=${model}, messages=${messages.length}, stream=${options.stream}`);
+
+    if (options.stream) {
+        const stream = await client.chat.completions.create({
+            model,
+            messages,
+            temperature,
+            max_tokens: maxTokens,
+            stream: true,
+        });
+
+        async function* streamIterator() {
+            for await (const chunk of stream) {
+                const content = chunk.choices[0]?.delta?.content || '';
+                if (content) {
+                    yield content;
+                }
+            }
+        }
+
+        return streamIterator();
+    }
 
     const response = await retry(async () => {
         const completion = await client.chat.completions.create({
@@ -117,7 +138,7 @@ export function createOpenAIComplete(config: LLMConfig = {}) {
             historyMessages?: ChatMessage[];
             stream?: boolean;
         }
-    ): Promise<string> => {
+    ): Promise<string | AsyncIterable<string>> => {
         return openaiComplete(prompt, {
             ...config,
             ...options,
@@ -198,7 +219,7 @@ export function createOpenAIEmbed(config: EmbeddingConfig = {}) {
 export async function gpt4oComplete(
     prompt: string,
     options: Omit<CompletionOptions, 'model'> = {}
-): Promise<string> {
+): Promise<string | AsyncIterable<string>> {
     return openaiComplete(prompt, { ...options, model: 'gpt-4o' });
 }
 
@@ -208,6 +229,6 @@ export async function gpt4oComplete(
 export async function gpt4oMiniComplete(
     prompt: string,
     options: Omit<CompletionOptions, 'model'> = {}
-): Promise<string> {
+): Promise<string | AsyncIterable<string>> {
     return openaiComplete(prompt, { ...options, model: 'gpt-4o-mini' });
 }

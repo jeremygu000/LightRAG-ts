@@ -78,7 +78,7 @@ async function main() {
         // Ragas expects 'answer' as a string
         results.push({
             ...item,
-            answer: result.response,
+            answer: result.response as string,
             contexts: retrievedContexts.length > 0 ? retrievedContexts : [],
             latency_ms: latency
         });

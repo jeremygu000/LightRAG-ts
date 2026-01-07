@@ -220,7 +220,7 @@ export interface KnowledgeGraph {
  */
 export interface QueryResult {
     /** Generated response text */
-    response: string;
+    response: string | AsyncIterable<string>;
     /** Query context used for generation */
     context?: string;
     /** Raw data for debugging/inspection */
@@ -371,7 +371,7 @@ export type LLMFunction = (
         historyMessages?: ChatMessage[];
         stream?: boolean;
     }
-) => Promise<string>;
+) => Promise<string | AsyncIterable<string>>;
 
 /**
  * Embedding function signature.
