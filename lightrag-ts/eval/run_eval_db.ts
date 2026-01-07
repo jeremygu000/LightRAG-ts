@@ -54,6 +54,12 @@ async function main() {
 
     await rag.initialize();
     console.log('✅ LightRAG initialized with Redis/Qdrant/Neo4j');
+    console.log('------------------------------------------------');
+    console.log('Management UIs:');
+    console.log('- Neo4j Browser: http://localhost:7474');
+    console.log('- Qdrant Dashboard: http://localhost:6333/dashboard');
+    console.log('- RedisInsight: http://localhost:5540');
+    console.log('------------------------------------------------');
 
     // Insert sample data
     console.log('Inserting sample data...');
