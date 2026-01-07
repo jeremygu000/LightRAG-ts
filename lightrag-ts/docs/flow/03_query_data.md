@@ -6,32 +6,32 @@ LightRAG 的查询引擎是其核心优势，通过结合图谱结构和向量�
 
 ```mermaid
 graph TD
-    A[Query: "Tell me about X"] --> B[关键词提取 (Keywords Extraction)]
-    B --> C{Query Mode?}
+    A["Query: 'Tell me about X'"] --> B["关键词提取 (Keywords Extraction)"]
+    B --> C{"Query Mode?"}
 
-    C -- Local --> D[Local Search]
-    C -- Global --> E[Global Search]
-    C -- Hybrid --> F[Hybrid Search]
+    C -- Local --> D["Local Search"]
+    C -- Global --> E["Global Search"]
+    C -- Hybrid --> F["Hybrid Search"]
 
     subgraph "Retrieval Phase"
-    D --> D1[Query 向量化]
-    D1 --> D2[匹配 Entities (VDB)]
-    D2 --> D3[检索关联 Relations (Graph)]
-    D3 --> D4[检索关联 Chunks (VDB)]
+    D --> D1["Query 向量化"]
+    D1 --> D2["匹配 Entities (VDB)"]
+    D2 --> D3["检索关联 Relations (Graph)"]
+    D3 --> D4["检索关联 Chunks (VDB)"]
 
-    E --> E1[Query 向量化]
-    E1 --> E2[匹配 Relations (VDB)]
-    E2 --> E3[匹配 Entities (VDB - Global)]
+    E --> E1["Query 向量化"]
+    E1 --> E2["匹配 Relations (VDB)"]
+    E2 --> E3["匹配 Entities (VDB - Global)"]
     end
 
     subgraph "Context Building"
-    D4 --> G[构建 Context (Token Limit)]
+    D4 --> G["构建 Context (Token Limit)"]
     E3 --> G
     end
 
     subgraph "Generation Phase"
-    G --> H[LLM 生成答案]
-    H --> I[返回结果]
+    G --> H["LLM 生成答案"]
+    H --> I["返回结果"]
     end
 ```
 

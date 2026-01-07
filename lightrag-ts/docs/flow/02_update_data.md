@@ -10,10 +10,10 @@ LightRAG 不支持直接的"原地修改"。数据更新通常通过**增量插�
 
 ```mermaid
 graph LR
-    A[New Data] --> B[Calculate Doc Hash]
-    B --> C{KV Store Check}
-    C -- Exists & Processed --> D[Skip (Log Info)]
-    C -- Not Found --> E[Proceed with Ingestion Flow]
+    A["New Data"] --> B["Calculate Doc Hash"]
+    B --> C{"KV Store Check"}
+    C -- "Exists & Processed" --> D["Skip (Log Info)"]
+    C -- "Not Found" --> E["Proceed with Ingestion Flow"]
 ```
 
 ### 机制解释
@@ -35,25 +35,25 @@ graph LR
 
 ```mermaid
 graph TD
-    A[deleteDocument(docId)] --> B[获取 Chunk List]
-    B --> C[扫描 Graph Nodes (Entities)]
-    B --> D[扫描 Graph Edges (Relations)]
-    C --> E{SourceID 包含 Chunk?}
-    D --> F{SourceID 包含 Chunk?}
-    E -- Yes --> G[从 Entity 移除 ChunkID]
-    F -- Yes --> H[从 Relation 移除 ChunkID]
+    A["deleteDocument(docId)"] --> B["获取 Chunk List"]
+    B --> C["扫描 Graph Nodes (Entities)"]
+    B --> D["扫描 Graph Edges (Relations)"]
+    C --> E{"SourceID 包含 Chunk?"}
+    D --> F{"SourceID 包含 Chunk?"}
+    E -- Yes --> G["从 Entity 移除 ChunkID"]
+    F -- Yes --> H["从 Relation 移除 ChunkID"]
 
-    G --> I{剩余 SourceID 为空?}
-    I -- Yes --> J[删除 Entity (Graph & VDB)]
-    I -- No --> K[更新 Entity SourceID]
+    G --> I{"剩余 SourceID 为空?"}
+    I -- Yes --> J["删除 Entity (Graph & VDB)"]
+    I -- No --> K["更新 Entity SourceID"]
 
-    H --> L{剩余 SourceID 为空?}
-    L -- Yes --> M[删除 Relation (Graph & VDB)]
-    L -- No --> N[更新 Relation SourceID]
+    H --> L{"剩余 SourceID 为空?"}
+    L -- Yes --> M["删除 Relation (Graph & VDB)"]
+    L -- No --> N["更新 Relation SourceID"]
 
-    J --> O[删除 Chunks (KV & VDB)]
+    J --> O["删除 Chunks (KV & VDB)"]
     M --> O
-    O --> P[删除 Doc Record]
+    O --> P["删除 Doc Record"]
 ```
 
 ### 详细步骤解析

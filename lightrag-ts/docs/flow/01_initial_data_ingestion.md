@@ -6,32 +6,32 @@
 
 ```mermaid
 graph TD
-    A[Start: insert(text)] --> B[初始化 & ID生成]
+    A["Start: insert(text)"] --> B["初始化 & ID生成"]
     B --> C{文档是否已处理?}
-    C -- Yes --> D[跳过 (Skip)]
-    C -- No --> E[状态标记: Processing]
-    E --> F[文档分块 (Chunking)]
-    F --> G[Chunk 向量化 & 存储]
-    G --> H[实体 & 关系提取 (Extraction)]
-    H --> I[实体合并 & 存储]
-    H --> J[关系合并 & 存储]
-    I --> K[状态标记: Processed]
+    C -- Yes --> D["跳过 (Skip)"]
+    C -- No --> E["状态标记: Processing"]
+    E --> F["文档分块 (Chunking)"]
+    F --> G["Chunk 向量化 & 存储"]
+    G --> H["实体 & 关系提取 (Extraction)"]
+    H --> I["实体合并 & 存储"]
+    H --> J["关系合并 & 存储"]
+    I --> K["状态标记: Processed"]
     J --> K
-    K --> L[提交事务 (Commit)]
+    K --> L["提交事务 (Commit)"]
     L --> M[End]
 
     subgraph "Entities Processing"
-    I1[合并描述 (Map-Reduce)] --> I2[生成 Source ID]
-    I2 --> I3[更新 Graph Storage]
-    I3 --> I4[Entity 向量化]
-    I4 --> I5[Upsert Entities VDB]
+    I1["合并描述 (Map-Reduce)"] --> I2["生成 Source ID"]
+    I2 --> I3["更新 Graph Storage"]
+    I3 --> I4["Entity 向量化"]
+    I4 --> I5["Upsert Entities VDB"]
     end
 
     subgraph "Relations Processing"
-    J1[合并描述 & 权重] --> J2[生成 Source ID]
-    J2 --> J3[更新 Graph Storage]
-    J3 --> J4[Relation 向量化]
-    J4 --> J5[Upsert Relations VDB]
+    J1["合并描述 & 权重"] --> J2["生成 Source ID"]
+    J2 --> J3["更新 Graph Storage"]
+    J3 --> J4["Relation 向量化"]
+    J4 --> J5["Upsert Relations VDB"]
     end
 
     H -.-> I
