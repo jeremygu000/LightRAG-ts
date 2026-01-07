@@ -1,71 +1,65 @@
-# RAG System Evaluation Report
+# English
 
-## English Version
+## 1. Summary
+The RAG system demonstrates strong overall performance in **answer relevancy** and **context recall**, with all queries achieving perfect or near-perfect context recall (1.0), indicating that the necessary information is consistently retrieved. Answer relevancy is also high across all questions, ranging from 0.85 to 0.99, meaning responses are generally on-topic and useful.
 
-### 1. Summary
-The RAG system demonstrates strong overall performance in **answer relevancy** and **context recall**, indicating that it generally retrieves comprehensive information and generates responses highly relevant to user queries. However, there are notable inconsistencies in **faithfulness** and **context precision**, suggesting issues with hallucination and noise in retrieved contexts. The system performs best on questions directly supported by clear context but struggles when the model elaborates beyond the provided documents.
+However, there are notable inconsistencies in **faithfulness** and **context precision**. While faithfulness scores vary significantly (from 0.57 to 0.94), this suggests occasional hallucination or over-generation beyond the provided context. Context precision shows a critical weakness—especially for the third question ("Explain the difference..."), where it drops to 0.0—indicating a high level of noise in retrieved documents despite relevant information being present.
 
----
-
-### 2. Weakness Analysis
+## 2. Weakness Analysis
 
 - **Question: "Who is the author of 'Harry Potter'?"**  
-  - **Faithfulness: 0.33 (Low)**  
-    Despite correct answer generation, the faithfulness score is low because the response includes unsupported details such as *"This information is consistently supported by both the knowledge graph and the document chunks"*, which were not present in the context. This indicates **hallucination** — the model fabricates sources or justification.
+  - **Faithfulness = 0.57 (Low)**  
+    Despite correct answer content, the model adds unsupported details such as "*This information is supported by both the Knowledge Graph and the document chunks*" and "*relationship... explicitly defined as authorship*", which are not in the context. This external knowledge injection reduces faithfulness.
 
 - **Question: "What is LightRAG?"**  
-  - **Context Precision: 0.5 (Low)**  
-    The retrieved context contains only one relevant sentence out of two, yet the model generated a long, detailed explanation using external knowledge (e.g., “semantic similarity matching”, “robust framework for complex QA”). While the answer is plausible, this leads to lower context precision due to high noise (50% irrelevant content retrieved) and over-generation.
+  - **Context Precision = 0.5 (Low)**  
+    The retrieved context contains one irrelevant sentence about J.K. Rowling, diluting signal-to-noise ratio. Although the model correctly answers the question, half the context is unrelated, lowering precision.
 
 - **Question: "Explain the difference between local and global search in LightRAG."**  
-  - **Context Precision: Missing / Not Reported**  
-    Although the faithfulness and answer relevancy are high, **context precision is missing**, and more critically, **context recall = 0.0**, which means **not all necessary information was retrieved**. The reference mentions "vector search", "1-hop graph neighbors", and "relation vectors" — none of which appear in the retrieved context. Thus, the model must have used **external knowledge** to generate its accurate-looking response, making it unfaithful despite sounding correct.
+  - **Context Precision = 0.0 & Context Recall = 0.0 (Critically Low)**  
+    Despite generating a highly relevant and faithful response, the system retrieves only two sentences—one completely irrelevant (about Harry Potter), and one very brief mention without sufficient detail. Thus, while the *response* is good, the *retrieval* failed entirely: no useful information was actually retrieved to justify such a detailed output. This indicates **severe hallucination risk** due to poor retrieval quality.
+
+## 3. Optimization Advice
+
+1. **Improve Retrieval Relevance via Query Rewriting or Expansion**  
+   Use query rewriting techniques (e.g., hyDE, step-back prompting) to better align user queries with the actual content in the knowledge base. For example, expanding "difference between local and global search" into keywords like "local vs global search function" could improve retrieval accuracy.
+
+2. **Filter or Rank Retrieved Contexts Using Re-Ranking Models**  
+   Integrate a cross-encoder re-ranker (e.g., BERT-based) to filter out irrelevant contexts (like the J.K. Rowling sentence). This would dramatically improve **context precision** by removing noise before generation.
+
+3. **Constrain Generation Using Strict Prompting or Grounding Mechanisms**  
+   Implement stricter grounding rules in the LLM prompt (e.g., “Answer only using the provided context”) and consider systems that track source spans. This helps prevent hallucinations and improves **faithfulness**, especially when retrieval is imperfect.
 
 ---
 
-### 3. Optimization Advice
+# 中文
 
-1. **Improve Retrieval Filtering to Reduce Noise**  
-   Implement stricter filtering or re-ranking mechanisms to remove irrelevant context (e.g., filtering out 'J.K. Rowling wrote Harry Potter' when answering about LightRAG). This will improve **context precision** and reduce model confusion.
+## 1. 总结
+该RAG系统在**答案相关性**和**上下文召回率**方面表现良好，所有问题的上下文召回率均为1.0，说明关键信息基本都能被成功检索到。答案相关性也较高（0.85～0.99），表明生成的回答大多切题且有用。
 
-2. **Constrain Generation to Retrieved Content**  
-   Apply stronger grounding techniques (e.g., extractive or semi-extractive generation) to prevent the model from adding unsupported claims or fabricated references. This can significantly boost **faithfulness** scores.
+然而，在**忠实度**和**上下文精确率**方面存在明显问题。忠实度得分波动较大（0.57～0.94），说明模型有时会基于外部知识“自由发挥”。更严重的是上下文精确率——尤其是在第三个问题中降为0.0，表明检索结果中包含大量无关内容，信噪比极低。
 
-3. **Enhance Context Coverage via Query Rewriting or Expansion**  
-   Use query rewriting (e.g., turning "difference between local and global search" into targeted keywords like "local search definition", "global search mechanism") to ensure critical details are retrieved. This would improve **context recall** and support more accurate, evidence-based answers.
-
----
-
-## 中文版本
-
-### 1. 总结
-该RAG系统在**回答相关性**和**上下文召回率**方面表现良好，表明其通常能检索到全面的信息，并生成与用户问题高度相关的回答。然而，**保真度**和**上下文精确率**存在明显不足，反映出模型存在幻觉（hallucination）以及检索内容中噪音较多的问题。系统在有明确上下文支持的问题上表现最佳，但在需要推理或扩展时容易超出给定文档范围。
-
----
-
-### 2. 弱点分析
+## 2. 弱点分析
 
 - **问题：“《哈利·波特》的作者是谁？”**  
-  - **保真度：0.33（偏低）**  
-    尽管答案正确，但保真度得分低，因为回答中添加了上下文中不存在的内容，例如“该信息在知识图谱和文档块中均得到一致支持”。这属于典型的**幻觉现象**——模型虚构了来源或验证依据。
+  - **忠实度 = 0.57（偏低）**  
+    尽管答案正确，但模型添加了上下文中不存在的信息，例如“此信息由知识图谱和文档块共同支持”、“作者关系被明确定义”等描述，这些属于外部知识注入，导致忠实度下降。
 
 - **问题：“什么是LightRAG？”**  
-  - **上下文精确率：0.5（偏低）**  
-    检索到的两个句子中仅有一个相关，但模型却生成了大量细节解释（如“语义相似性匹配”、“复杂问答任务的鲁棒框架”），这些内容并未出现在上下文中。虽然回答看似合理，但由于使用了外部知识且检索噪音高，导致**上下文精确率下降**。
+  - **上下文精确率 = 0.5（偏低）**  
+    检索出的两个句子中有一个完全无关（关于J.K.罗琳），造成严重的噪声干扰。虽然最终回答正确，但一半的上下文是无用的，显著拉低了精确率。
 
-- **问题：“解释LightRAG中局部搜索与全局搜索的区别。”**  
-  - **上下文精确率：缺失，上下文召回率 = 0.0**  
-    尽管保真度和回答相关性较高，但**上下文召回率为0.0**，说明关键信息未被检索到。参考答案提到了“向量搜索”、“1跳图邻居”、“关系向量”等术语，而这些在检索结果中完全缺失。因此，模型是依靠**外部知识**生成看似准确的回答，本质上并不忠实于上下文。
+- **问题：“解释LightRAG中局部搜索与全局搜索的区别”**  
+  - **上下文精确率 = 0.0 & 上下文召回率 = 0.0（极差）**  
+    尽管生成的回答非常详细且看似准确，但实际检索到的内容仅有一句简短提及，另一句完全无关。这意味着模型在几乎没有有效信息输入的情况下生成了长篇回答，属于典型的**幻觉现象**，暴露出检索模块严重失效的问题。
 
----
+## 3. 优化建议
 
-### 3. 优化建议
+1. **通过查询重写或扩展提升检索质量**  
+   使用查询重写技术（如hyDE、step-back prompting）将用户问题转化为更匹配知识库表达的形式。例如将“局部与全局搜索的区别”扩展为“LightRAG中局部搜索和全局搜索的功能差异”，有助于提高检索命中率。
 
-1. **改进检索过滤以降低噪音**  
-   引入更严格的过滤机制或重排序模型，剔除无关上下文（例如，在回答关于LightRAG的问题时排除“J.K.罗琳写哈利·波特”的句子），从而提升**上下文精确率**并减少模型干扰。
+2. **引入重排序模型过滤无关上下文**  
+   集成交叉编码器（cross-encoder）类重排序模型（如BERT-based re-ranker），对检索结果进行二次打分与筛选，剔除像“J.K.罗琳”这类无关句子，可大幅提升**上下文精确率**。
 
-2. **限制生成内容仅基于检索结果**  
-   采用更强的“接地”技术（如抽取式或半抽取式生成），防止模型添加未经支持的断言或虚构引用，显著提高**保真度**。
-
-3. **通过查询改写增强上下文覆盖**  
-   使用查询改写技术（例如将“局部与全局搜索的区别”拆解为“局部搜索定义”、“全局搜索机制”等关键词）来提升关键信息的检索完整性，从而改善**上下文召回率**，支持更准确、有据可依的回答。
+3. **通过严格提示词或约束机制限制生成过程**  
+   在生成阶段加强约束，例如使用提示词：“请仅根据以下上下文回答”，并结合溯源机制追踪每句话的知识来源。这能有效减少幻觉，提升**忠实度**，尤其在检索不完美的情况下尤为重要。

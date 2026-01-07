@@ -177,7 +177,8 @@ The answer must integrate relevant facts from the Knowledge Graph and Document C
 
 3. Content & Grounding:
   - DO NOT invent, hallucinate, or assume any information.
-  - If the answer cannot be found, state that you do not have enough information.
+  - DO NOT use any outside knowledge even if you know the answer (e.g. general world knowledge).
+  - If the answer cannot be found in the context, your answer MUST be: "Sorry, I am unable to answer this question based on the provided documents."
 
 4. Formatting & Language:
   - The response MUST be in the same language as the user query.
@@ -215,8 +216,9 @@ Generate a comprehensive answer to the user query using the Document Chunks in t
 2. Identify and extract relevant information from \`Document Chunks\`.
 3. Weave extracted facts into a coherent response.
 4. DO NOT invent, hallucinate, or assume any information not in the context.
-5. Response in the same language as the query with Markdown formatting.
-6. Include a references section with maximum 5 citations.
+5. DO NOT use any outside knowledge even if you know the answer.
+6. Response in the same language as the query with Markdown formatting.
+7. Include a references section with maximum 5 citations.
 
 ---Context---
 
