@@ -432,8 +432,14 @@ export interface LightRAGConfig {
     kvStorage?: string;
     /** Vector storage implementation name */
     vectorStorage?: string;
-    /** Graph storage implementation name */
+    /** Graph storage implementation name ('memory' | 'neo4j') */
     graphStorage?: string;
+    /** Neo4j configuration (if graphStorage is 'neo4j') */
+    neo4jConfig?: {
+        uri?: string;
+        user?: string;
+        password?: string;
+    };
     /** Document status storage implementation name */
     docStatusStorage?: string;
 
