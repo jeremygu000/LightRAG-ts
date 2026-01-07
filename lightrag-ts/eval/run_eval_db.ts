@@ -52,8 +52,11 @@ async function main() {
         }
     });
 
+    // Clear existing data to ensure clean evaluation state
+    console.log('Clearing previous data...');
+    await rag.drop();
     await rag.initialize();
-    console.log('✅ LightRAG initialized with Redis/Qdrant/Neo4j');
+
     console.log('------------------------------------------------');
     console.log('Management UIs:');
     console.log('- Neo4j Browser: http://localhost:7474');
@@ -81,14 +84,15 @@ async function main() {
     const results: EvalResult[] = [];
 
     console.log(`Running evaluation on ${dataset.length} questions...`);
-
     for (const item of dataset) {
         const start = Date.now();
         const result = await rag.query(item.question, {
             mode: 'hybrid',
-            cosSimThreshold: 0.1,
+            topK: 5, // Limit topK for small dataset
+            cosSimThreshold: 0.4, // Stricter similarity threshold
             enableRerank: true,
-            minRerankScore: 0.01,
+            minRerankScore: 0.4, // Stricter rerank threshold
+            temperature: 0.0, // Ensure deterministic output
         });
         const latency = Date.now() - start;
 
