@@ -7,7 +7,7 @@
  * @module operate/extraction
  */
 
-import type { Entity, Relation, TextChunk, LLMFunction, LLMCacheEntry, Tokenizer } from '../types.js';
+import type { TextChunk, LLMFunction, LLMCacheEntry } from '../types.js';
 import { PROMPTS, formatPrompt } from '../prompts.js';
 import {
     DEFAULT_ENTITY_TYPES,
@@ -383,7 +383,6 @@ export async function extractFromChunk(
 
     const chunkKey = computeMdhashId(chunk.content, 'chunk-');
     const filePath = chunk.filePath || 'unknown_source';
-    const timestamp = Date.now();
 
     // Format prompts
     const contextBase = {

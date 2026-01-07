@@ -85,6 +85,7 @@ export {
     JsonKVStorage,
     MemoryVectorStorage,
     MemoryGraphStorage,
+    DocStatusStorage,
 } from './storage/index.js';
 
 export type {
@@ -92,7 +93,27 @@ export type {
     BaseVectorStorage,
     BaseGraphStorage,
     StorageConfig,
+    DocStatusStorageConfig,
 } from './storage/index.js';
+
+// ==================== Rerank ====================
+
+export {
+    cohereRerank,
+    jinaRerank,
+    aliyunRerank,
+    createRerankFunction,
+    applyRerank,
+    chunkDocumentsForRerank,
+    aggregateChunkScores,
+} from './rerank.js';
+
+export type {
+    RerankResult,
+    RerankFunction,
+    RerankOptions,
+    RerankConfig,
+} from './rerank.js';
 
 // ==================== LLM ====================
 

@@ -515,7 +515,7 @@ export async function parallelLimit<T, R>(
     operation: (item: T, index: number) => Promise<R>,
     limit: number = 4
 ): Promise<R[]> {
-    const results: R[] = new Array(items.length);
+    const results: R[] = Array.from({ length: items.length });
     let index = 0;
 
     async function worker() {

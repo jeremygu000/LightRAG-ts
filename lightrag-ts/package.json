@@ -9,6 +9,10 @@
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
+    "lint": "oxlint src tests",
+    "lint:fix": "oxlint src tests --fix",
+    "type-check": "tsc --noEmit",
+    "check": "concurrently -n test,lint,type -c blue,green,yellow \"npm run test\" \"npm run lint\" \"npm run type-check\"",
     "dev": "tsx watch src/index.ts",
     "example": "tsx examples/basic-usage.ts"
   },
@@ -30,7 +34,9 @@
     "@types/node": "^22.10.0",
     "typescript": "^5.7.0",
     "tsx": "^4.19.0",
-    "vitest": "^2.1.0"
+    "vitest": "^2.1.0",
+    "oxlint": "^0.15.0",
+    "concurrently": "^9.1.0"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -8,8 +8,6 @@ import {
     GraphNode,
     GraphEdge,
     KnowledgeGraph,
-    KnowledgeGraphNode,
-    KnowledgeGraphEdge,
     StorageConfig
 } from './base.js';
 import { readJson, writeJson, fileExists, ensureDir, logger } from '../utils/index.js';

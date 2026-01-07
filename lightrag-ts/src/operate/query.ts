@@ -22,7 +22,6 @@ import {
     DEFAULT_TOP_K,
     DEFAULT_MAX_ENTITY_TOKENS,
     DEFAULT_MAX_RELATION_TOKENS,
-    DEFAULT_MAX_TOTAL_TOKENS,
     GRAPH_FIELD_SEP,
 } from '../constants.js';
 import {

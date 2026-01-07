@@ -7,11 +7,13 @@ import path from 'path';
 import type {
     LightRAGConfig,
     InsertOptions,
+    DeleteOptions,
     QueryParam,
     QueryResult,
     LLMFunction,
     TextChunk,
     DocumentStatus,
+    PipelineStatus,
 } from './types.js';
 import {
     JsonKVStorage,
@@ -475,6 +477,278 @@ export class LightRAG {
             this.chunksVdb.indexDoneCallback(),
             this.graphStorage.indexDoneCallback(),
         ]);
+    }
+
+    // ==================== Document Deletion ====================
+
+    /**
+     * Delete a document and optionally its associated data.
+     * 
+     * @param docId - Document ID to delete
+     * @param options - Deletion options
+     * @returns Pipeline status with deletion results
+     * 
+     * @example
+     * ```typescript
+     * await rag.deleteDocument('doc-abc123', { 
+     *   deleteChunks: true,
+     *   rebuildGraph: false 
+     * });
+     * ```
+     */
+    async deleteDocument(
+        docId: string,
+        options: DeleteOptions = {}
+    ): Promise<PipelineStatus> {
+        await this.initialize();
+
+        const { deleteChunks = true, rebuildGraph = false } = options;
+        const status: PipelineStatus = {
+            latestMessage: `Deleting document ${docId}`,
+            historyMessages: [],
+        };
+
+        try {
+            // Get document status
+            const docStatus = await this.docsKv.getById(docId);
+            if (!docStatus) {
+                status.latestMessage = `Document ${docId} not found`;
+                status.error = 'Document not found';
+                return status;
+            }
+
+            const chunkIds = docStatus.chunksList || [];
+            status.historyMessages.push(`Found ${chunkIds.length} chunks to process`);
+
+            // Collect entities and relations to clean up
+            const entitiesToCheck = new Set<string>();
+            const relationsToCheck = new Set<string>();
+
+            if (deleteChunks && chunkIds.length > 0) {
+                // Find all entities and relations referencing these chunks
+                // Only query once, not per chunk
+                const nodes = await this.graphStorage.getAllNodes();
+                const edges = await this.graphStorage.getAllEdges();
+
+                for (const chunkId of chunkIds) {
+                    // Check entities via graph (nodes is an array)
+                    for (const nodeData of nodes) {
+                        const nodeId = nodeData.id as string || nodeData.entity_name as string;
+                        const sourceId = (nodeData?.source_id as string) || '';
+                        if (nodeId && sourceId.includes(chunkId)) {
+                            entitiesToCheck.add(nodeId);
+                        }
+                    }
+
+                    // Check relations via graph (edges is an array)
+                    for (const edgeData of edges) {
+                        const srcId = edgeData.src_id as string || edgeData.source as string;
+                        const tgtId = edgeData.tgt_id as string || edgeData.target as string;
+                        const sourceId = (edgeData?.source_id as string) || '';
+                        if (srcId && tgtId && sourceId.includes(chunkId)) {
+                            const edgeKey = [srcId, tgtId].sort().join(GRAPH_FIELD_SEP);
+                            relationsToCheck.add(edgeKey);
+                        }
+                    }
+                }
+
+                status.historyMessages.push(
+                    `Found ${entitiesToCheck.size} entities and ${relationsToCheck.size} relations to check`
+                );
+
+                // Remove chunk references from entities
+                for (const entityName of entitiesToCheck) {
+                    await this.removeChunkReferencesFromEntity(entityName, chunkIds);
+                }
+
+                // Remove chunk references from relations
+                for (const relationKey of relationsToCheck) {
+                    const [srcId, tgtId] = relationKey.split(GRAPH_FIELD_SEP);
+                    await this.removeChunkReferencesFromRelation(srcId, tgtId, chunkIds);
+                }
+
+                // Delete chunks from storage
+                await this.chunksKv.delete(chunkIds);
+                await this.chunksVdb.delete(chunkIds);
+
+                status.historyMessages.push(`Deleted ${chunkIds.length} chunks`);
+            }
+
+            // Delete document
+            await this.docsKv.delete([docId]);
+            status.historyMessages.push(`Deleted document ${docId}`);
+
+            // Rebuild graph if requested
+            if (rebuildGraph && entitiesToCheck.size > 0) {
+                status.latestMessage = 'Rebuilding affected entities...';
+                options.onProgress?.(status);
+                // Note: Full rebuild would require re-extracting from remaining chunks
+                // This is a complex operation - for now just log
+                status.historyMessages.push('Graph rebuild requested (not yet implemented)');
+            }
+
+            await this.commitChanges();
+
+            status.latestMessage = `Successfully deleted document ${docId}`;
+            options.onProgress?.(status);
+            return status;
+
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+            status.latestMessage = `Failed to delete document: ${errorMsg}`;
+            status.error = errorMsg;
+            logger.error(`Delete document failed: ${errorMsg}`);
+            return status;
+        }
+    }
+
+    /**
+     * Delete multiple documents.
+     */
+    async deleteDocuments(
+        docIds: string[],
+        options: DeleteOptions = {}
+    ): Promise<PipelineStatus> {
+        const status: PipelineStatus = {
+            latestMessage: `Deleting ${docIds.length} documents`,
+            historyMessages: [],
+        };
+
+        for (const docId of docIds) {
+            const result = await this.deleteDocument(docId, options);
+            status.historyMessages.push(...result.historyMessages);
+            if (result.error) {
+                status.historyMessages.push(`Error for ${docId}: ${result.error}`);
+            }
+        }
+
+        status.latestMessage = `Completed deleting ${docIds.length} documents`;
+        return status;
+    }
+
+    /**
+     * Remove chunk references from an entity, deleting if no references remain.
+     */
+    private async removeChunkReferencesFromEntity(
+        entityName: string,
+        chunkIds: string[]
+    ): Promise<void> {
+        const node = await this.graphStorage.getNode(entityName);
+        if (!node) return;
+
+        const currentSourceId = (node.source_id as string) || '';
+        const sourceIdSet = new Set(currentSourceId.split(GRAPH_FIELD_SEP).filter(Boolean));
+
+        // Remove chunk IDs
+        for (const chunkId of chunkIds) {
+            sourceIdSet.delete(chunkId);
+        }
+
+        if (sourceIdSet.size === 0) {
+            // No more references, delete entity
+            await this.graphStorage.deleteNode(entityName);
+            await this.entitiesVdb.deleteEntity(entityName);
+            logger.debug(`Deleted orphaned entity: ${entityName}`);
+        } else {
+            // Update with remaining references
+            await this.graphStorage.upsertNode(entityName, {
+                ...node,
+                source_id: Array.from(sourceIdSet).join(GRAPH_FIELD_SEP),
+            });
+        }
+    }
+
+    /**
+     * Remove chunk references from a relation, deleting if no references remain.
+     */
+    private async removeChunkReferencesFromRelation(
+        srcId: string,
+        tgtId: string,
+        chunkIds: string[]
+    ): Promise<void> {
+        const edge = await this.graphStorage.getEdge(srcId, tgtId);
+        if (!edge) return;
+
+        const currentSourceId = (edge.source_id as string) || '';
+        const sourceIdSet = new Set(currentSourceId.split(GRAPH_FIELD_SEP).filter(Boolean));
+
+        // Remove chunk IDs
+        for (const chunkId of chunkIds) {
+            sourceIdSet.delete(chunkId);
+        }
+
+        if (sourceIdSet.size === 0) {
+            // No more references, delete relation using removeEdges
+            await this.graphStorage.removeEdges([[srcId, tgtId]]);
+            await this.relationsVdb.deleteEntityRelation(srcId);
+            logger.debug(`Deleted orphaned relation: ${srcId} -> ${tgtId}`);
+        } else {
+            // Update with remaining references
+            await this.graphStorage.upsertEdge(srcId, tgtId, {
+                ...edge,
+                source_id: Array.from(sourceIdSet).join(GRAPH_FIELD_SEP),
+            });
+        }
+    }
+
+    // ==================== Pipeline Status ====================
+
+    /**
+     * Get current pipeline status.
+     */
+    async getPipelineStatus(): Promise<{ documents: number; chunks: number; entities: number; relations: number }> {
+        await this.initialize();
+
+        const nodes = await this.graphStorage.getAllNodes();
+        const edges = await this.graphStorage.getAllEdges();
+
+        return {
+            documents: 0, // Would need to count from docsKv
+            chunks: 0,    // Would need to count from chunksKv
+            entities: nodes.length,
+            relations: edges.length,
+        };
+    }
+
+    /**
+     * Check if the RAG system is initialized.
+     */
+    isInitialized(): boolean {
+        return this.initialized;
+    }
+
+    /**
+     * Get working directory.
+     */
+    getWorkingDir(): string {
+        return this.workingDir;
+    }
+
+    /**
+     * Get namespace.
+     */
+    getNamespace(): string {
+        return this.namespace;
+    }
+
+    // ==================== LLM Cache Management ====================
+
+    /**
+     * Clear LLM response cache.
+     */
+    async clearLlmCache(): Promise<void> {
+        await this.initialize();
+        await this.llmCache.drop();
+        logger.info('LLM cache cleared');
+    }
+
+    /**
+     * Get LLM cache statistics.
+     */
+    async getLlmCacheStats(): Promise<{ size: number }> {
+        await this.initialize();
+        const isEmpty = await this.llmCache.isEmpty();
+        return { size: isEmpty ? 0 : -1 }; // Can't get exact size without iterating
     }
 }
 
