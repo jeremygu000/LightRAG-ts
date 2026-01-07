@@ -23,6 +23,8 @@ import {
     BaseVectorStorage,
     BaseGraphStorage,
     Neo4jGraphStorage,
+    RedisKVStorage,
+    QdrantVectorStorage,
 } from './storage/index.js';
 import { createOpenAIComplete, createOpenAIEmbed } from './llm/index.js';
 import { chunkingByTokenSize, addDocIdToChunks, extractFromChunks, mergeEntityDescriptions, mergeRelationDescriptionsSimple, mergeSourceIds } from './operate/index.js';
@@ -75,6 +77,12 @@ export class LightRAG {
     private graphStorageType: string;
     private neo4jConfig?: { uri?: string; user?: string; password?: string };
 
+    // New storage config
+    private kvStorageType: string;
+    private vectorStorageType: string;
+    private redisConfig?: { host?: string; port?: number; password?: string };
+    private qdrantConfig?: { url?: string; apiKey?: string };
+
     private initialized: boolean = false;
 
     constructor(config: LightRAGConfig = {}) {
@@ -107,6 +115,11 @@ export class LightRAG {
         // Storage config
         this.graphStorageType = config.graphStorage || 'memory';
         this.neo4jConfig = config.neo4jConfig;
+
+        this.kvStorageType = config.kvStorage || 'json';
+        this.vectorStorageType = config.vectorStorage || 'memory';
+        this.redisConfig = config.redisConfig;
+        this.qdrantConfig = config.qdrantConfig;
     }
 
     /**
@@ -128,40 +141,33 @@ export class LightRAG {
         };
 
         // Initialize KV storages
-        this.docsKv = new JsonKVStorage<DocumentStatus>({
-            ...storageConfig,
-            storageName: 'docs'
-        });
-        this.chunksKv = new JsonKVStorage<TextChunk>({
-            ...storageConfig,
-            storageName: 'chunks'
-        });
-        this.entitiesKv = new JsonKVStorage({
-            ...storageConfig,
-            storageName: 'entities_kv'
-        });
-        this.relationsKv = new JsonKVStorage({
-            ...storageConfig,
-            storageName: 'relations_kv'
-        });
-        this.llmCache = new JsonKVStorage({
-            ...storageConfig,
-            storageName: 'llm_cache'
-        });
+        // Initialize KV storages
+        if (this.kvStorageType === 'redis') {
+            const redisOptions = { ...storageConfig, ...this.redisConfig };
+            this.docsKv = new RedisKVStorage<DocumentStatus>({ ...redisOptions, storageName: 'docs' });
+            this.chunksKv = new RedisKVStorage<TextChunk>({ ...redisOptions, storageName: 'chunks' });
+            this.entitiesKv = new RedisKVStorage({ ...redisOptions, storageName: 'entities_kv' });
+            this.relationsKv = new RedisKVStorage({ ...redisOptions, storageName: 'relations_kv' });
+            this.llmCache = new RedisKVStorage({ ...redisOptions, storageName: 'llm_cache' });
+        } else {
+            this.docsKv = new JsonKVStorage<DocumentStatus>({ ...storageConfig, storageName: 'docs' });
+            this.chunksKv = new JsonKVStorage<TextChunk>({ ...storageConfig, storageName: 'chunks' });
+            this.entitiesKv = new JsonKVStorage({ ...storageConfig, storageName: 'entities_kv' });
+            this.relationsKv = new JsonKVStorage({ ...storageConfig, storageName: 'relations_kv' });
+            this.llmCache = new JsonKVStorage({ ...storageConfig, storageName: 'llm_cache' });
+        }
 
         // Initialize vector storages
-        this.entitiesVdb = new MemoryVectorStorage({
-            ...storageConfig,
-            storageName: 'entities_vdb'
-        });
-        this.relationsVdb = new MemoryVectorStorage({
-            ...storageConfig,
-            storageName: 'relations_vdb'
-        });
-        this.chunksVdb = new MemoryVectorStorage({
-            ...storageConfig,
-            storageName: 'chunks_vdb'
-        });
+        if (this.vectorStorageType === 'qdrant') {
+            const qdrantOptions = { ...storageConfig, ...this.qdrantConfig };
+            this.entitiesVdb = new QdrantVectorStorage({ ...qdrantOptions, storageName: 'entities_vdb' });
+            this.relationsVdb = new QdrantVectorStorage({ ...qdrantOptions, storageName: 'relations_vdb' });
+            this.chunksVdb = new QdrantVectorStorage({ ...qdrantOptions, storageName: 'chunks_vdb' });
+        } else {
+            this.entitiesVdb = new MemoryVectorStorage({ ...storageConfig, storageName: 'entities_vdb' });
+            this.relationsVdb = new MemoryVectorStorage({ ...storageConfig, storageName: 'relations_vdb' });
+            this.chunksVdb = new MemoryVectorStorage({ ...storageConfig, storageName: 'chunks_vdb' });
+        }
 
         // Initialize graph storage
         if (this.graphStorageType === 'neo4j') {

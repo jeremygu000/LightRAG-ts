@@ -67,13 +67,54 @@ Configure `RERANK_BINDING` in `.env`:
 - **Jina AI**: `RERANK_BINDING="jina"`, `JINA_API_KEY="..."`
 - **Cohere**: `RERANK_BINDING="cohere"`, `COHERE_API_KEY="..."`
 
-## 💾 Storage & database
+## 💾 Storage & Database
 
 By default, LightRAG-ts uses **File-based Storage** (JSON key-value stores and in-memory graphs persisted to disk).
 
-- **No external database (like Neo4j, Milvus, or PostgreSQL) is required.**
-- **No Docker setup is needed** to run this project.
+- **No external database (like Neo4j, Milvus, or PostgreSQL) is required** for basic usage.
+- **No Docker setup is needed** to run this project in default mode.
 - Data is stored locally in the `lightrag_data` directory (configurable via `workingDir`).
+
+### Using External Databases (Redis, Qdrant, Neo4j)
+
+For production use cases or larger datasets, you can configure LightRAG to use external databases.
+
+**1. Start Services**:
+Use Docker Compose to start Redis, Qdrant, and Neo4j:
+
+```bash
+docker-compose up -d
+```
+
+**2. Configure Environment**:
+Update your `.env` file with the database settings (copy from `.env.example`):
+
+```bash
+# Redis
+REDIS_HOST="localhost"
+REDIS_PORT=6380 # Mapped to host port 6380 to avoid conflicts
+
+# Qdrant
+QDRANT_URL="http://localhost:6333"
+
+# Neo4j
+NEO4J_URI="bolt://localhost:7687"
+NEO4J_USER="neo4j"
+NEO4J_PASSWORD="password"
+```
+
+**3. Run with Databases**:
+We provide a dedicated evaluation script that uses all three databases:
+
+```bash
+npm run eval:db
+```
+
+**4. Management UIs**:
+
+- **Neo4j Browser**: [http://localhost:7474](http://localhost:7474)
+- **Qdrant Dashboard**: [http://localhost:6333/dashboard](http://localhost:6333/dashboard)
+- **RedisInsight**: [http://localhost:5540](http://localhost:5540)
 
 ## 🚀 Usage
 
