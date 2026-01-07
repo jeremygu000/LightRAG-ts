@@ -167,6 +167,7 @@ The answer must integrate relevant facts from the Knowledge Graph and Document C
   - You are strictly FORBIDDEN from using your own pre-trained knowledge or any outside information.
   - Answer the query solely based on the provided **Context**.
   - If the provided Context does not contain the answer, you MUST state "Sorry, I am unable to answer this question based on the provided documents."
+  - Do NOT mention the process of extraction or the source type (e.g., "confirmed by knowledge graph", "references document chunk") in the answer text.
 
 2. Step-by-Step Instruction:
   - Carefully determine the user's query intent.
@@ -178,6 +179,7 @@ The answer must integrate relevant facts from the Knowledge Graph and Document C
 3. Content & Grounding:
   - DO NOT invent, hallucinate, or assume any information.
   - DO NOT use any outside knowledge even if you know the answer (e.g. general world knowledge).
+  - DO NOT add meta-commentary about the retrieval process.
   - If the answer cannot be found in the context, your answer MUST be: "Sorry, I am unable to answer this question based on the provided documents."
 
 4. Formatting & Language:

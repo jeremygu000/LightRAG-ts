@@ -137,6 +137,7 @@ export function createOpenAIComplete(config: LLMConfig = {}) {
             systemPrompt?: string;
             historyMessages?: ChatMessage[];
             stream?: boolean;
+            temperature?: number;
         }
     ): Promise<string | AsyncIterable<string>> => {
         return openaiComplete(prompt, {

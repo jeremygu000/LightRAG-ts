@@ -544,6 +544,7 @@ export async function kgQuery(
         systemPrompt,
         historyMessages,
         stream: param.stream,
+        temperature: param.temperature ?? 0.0,
     });
 
     // Build raw data

@@ -58,6 +58,8 @@ export interface QueryParam {
     minRerankScore?: number;
     /** Cosine similarity threshold for filtering retrieval results */
     cosSimThreshold?: number;
+    /** Generation temperature (0.0 to 1.0) */
+    temperature?: number;
 }
 
 /**
@@ -370,6 +372,7 @@ export type LLMFunction = (
         systemPrompt?: string;
         historyMessages?: ChatMessage[];
         stream?: boolean;
+        temperature?: number;
     }
 ) => Promise<string | AsyncIterable<string>>;
 
