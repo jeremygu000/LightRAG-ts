@@ -27,12 +27,7 @@ async function main() {
     // Initialize LightRAG
     const rag = new LightRAG({
         workingDir: './lightrag_eval_data',
-        llmModelFunc: async (text) => {
-            // Mock LLM for testing if no API key
-            if (!process.env.OPENAI_API_KEY) return `Mock answer for: ${text.substring(0, 20)}...`;
-            // In real run, use default OpenAI
-            return "This is a real LLM response placeholder.";
-        }
+        // Use default LLM implementation which reads from env vars (OpenAI/Qwen)
     });
 
     // We assume data is already inserted for this test, or we insert some mock data

@@ -8,6 +8,10 @@ from ragas.metrics import (
     context_recall,
 )
 from datasets import Dataset
+from dotenv import load_dotenv
+
+# Load environment variables from parent directory .env
+load_dotenv(os.path.join(os.path.dirname(__file__), '../.env'))
 
 # Load results
 with open('results.json', 'r') as f:
