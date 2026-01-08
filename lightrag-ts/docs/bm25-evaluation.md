@@ -4,11 +4,17 @@
 
 ## 架构概述
 
-```
-Query ──┬── BM25 (ES Keyword) ────────┐
-        │                              ├──► Merge & Dedupe ──► Rerank ──► LLM
-        └── Qdrant (Vector) ──────────┘
-```
+![LightRAG Architecture](./images/lightrag_architecture.png)
+
+**流程说明：**
+
+1. 🔍 **User Query** → 用户查询入口
+2. 🅰️ **BM25 Search** (Elasticsearch) → 关键词匹配
+3. 🅱️ **Vector Search** (Qdrant) → 语义相似度
+4. ⚙️ **Merge & Rerank** → 结果融合与重排序
+5. 🧠 **Knowledge Graph** (Neo4j) → 知识图谱增强
+6. 🤖 **LLM Generation** (OpenAI) → 答案生成
+7. 📄 **Response** → 最终响应
 
 ## 评估结果对比
 
