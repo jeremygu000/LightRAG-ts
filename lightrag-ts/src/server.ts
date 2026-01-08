@@ -15,10 +15,30 @@ let rag: LightRAG | null = null;
 async function getRag() {
     if (!rag) {
         rag = new LightRAG({
-            workingDir: process.env.RAG_WORKING_DIR || './lightrag_data',
-            graphStorage: process.env.GRAPH_STORAGE,
+            workingDir: process.env.RAG_WORKING_DIR || './lightrag_eval_db_data',
+            namespace: process.env.RAG_NAMESPACE || 'eval_db_v3',
+            // Storage configuration for production
+            kvStorage: 'redis',
+            vectorStorage: 'qdrant',
+            graphStorage: 'neo4j',
+            // Redis config
+            redisConfig: {
+                host: process.env.REDIS_HOST || 'localhost',
+                port: Number(process.env.REDIS_PORT) || 6380,
+            },
+            // Qdrant config
+            qdrantConfig: {
+                url: process.env.QDRANT_URL || 'http://localhost:6333',
+            },
+            // Neo4j config
+            neo4jConfig: {
+                uri: process.env.NEO4J_URI || 'bolt://localhost:7687',
+                user: process.env.NEO4J_USER || 'neo4j',
+                password: process.env.NEO4J_PASSWORD || 'password',
+            },
         });
         await rag.initialize();
+        logger.info('[Server] LightRAG initialized with DB storage');
     }
     return rag;
 }
