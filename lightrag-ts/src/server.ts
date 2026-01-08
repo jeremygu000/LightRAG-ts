@@ -224,6 +224,54 @@ app.post('/documents/list', async (c) => {
 });
 
 /**
+ * Get Documents (Paginated) - WebUI Format
+ * POST /documents/paginated
+ */
+app.post('/documents/paginated', async (c) => {
+    const body = await c.req.json();
+    const { page = 1, page_size = 10 } = body;
+
+    const ragInstance = await getRag();
+    const status = await ragInstance.getPipelineStatus();
+
+    return c.json({
+        documents: [],
+        pagination: {
+            page,
+            page_size,
+            total_count: status.documents,
+            total_pages: Math.ceil(status.documents / page_size) || 1,
+            has_next: false,
+            has_prev: page > 1,
+        },
+        status_counts: {
+            processed: status.documents,
+            pending: 0,
+            processing: 0,
+            failed: 0,
+        },
+    });
+});
+
+/**
+ * Get Document Status Counts - WebUI Format
+ * GET /documents/status_counts
+ */
+app.get('/documents/status_counts', async (c) => {
+    const ragInstance = await getRag();
+    const status = await ragInstance.getPipelineStatus();
+
+    return c.json({
+        status_counts: {
+            processed: status.documents,
+            pending: 0,
+            processing: 0,
+            failed: 0,
+        },
+    });
+});
+
+/**
  * Insert Text - WebUI Format
  * POST /documents/text
  */
