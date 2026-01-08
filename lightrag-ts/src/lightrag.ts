@@ -26,6 +26,7 @@ import {
     RedisKVStorage,
     QdrantVectorStorage,
 } from './storage/index.js';
+import { createBM25Storage, BM25Storage } from './storage/bm25-storage.js';
 import { createOpenAIComplete, createOpenAIEmbed } from './llm/index.js';
 import { chunkingByTokenSize, addDocIdToChunks, extractFromChunks, mergeEntityDescriptions, mergeRelationDescriptionsSimple, mergeSourceIds } from './operate/index.js';
 import { kgQuery } from './operate/query.js';
@@ -65,6 +66,7 @@ export class LightRAG {
     private chunksVdb!: BaseVectorStorage;
     private graphStorage!: BaseGraphStorage;
     private llmCache!: BaseKVStorage<Record<string, unknown>>;
+    private bm25Storage!: BM25Storage;
 
     // Config
     private chunkTokenSize: number;
@@ -195,6 +197,10 @@ export class LightRAG {
             this.graphStorage.initialize(),
         ]);
 
+        // Initialize BM25 storage
+        this.bm25Storage = createBM25Storage();
+        await this.bm25Storage.initialize();
+
         this.initialized = true;
         logger.info('LightRAG initialized successfully');
     }
@@ -283,6 +289,14 @@ export class LightRAG {
                     chunkData[chunkId] = { ...chunk, fullDocId: docId } as TextChunk;
                 }
                 await this.chunksKv.upsert(chunkData);
+
+                // Add chunks to BM25 index for keyword search
+                const bm25Docs = Object.entries(chunkData).map(([id, chunk]) => ({
+                    id,
+                    content: chunk.content,
+                    metadata: { doc_id: docId },
+                }));
+                await this.bm25Storage.addDocuments(bm25Docs);
 
                 // Generate chunk embeddings and store in vector DB
                 const chunkContents = Object.values(chunkData).map(c => c.content);
@@ -449,7 +463,8 @@ export class LightRAG {
             this.chunksKv,
             this.llmModelFunc,
             fullParam,
-            this.chunksVdb
+            this.chunksVdb,
+            this.bm25Storage
         );
     }
 
@@ -489,6 +504,7 @@ export class LightRAG {
             this.relationsVdb.drop(),
             this.chunksVdb.drop(),
             this.graphStorage.drop(),
+            this.bm25Storage.drop(),
         ]);
 
         logger.info('All data dropped');

@@ -62,6 +62,8 @@ export interface QueryParam {
     temperature?: number;
     /** Enable query expansion for better recall */
     enableQueryExpansion?: boolean;
+    /** Enable BM25 keyword search for hybrid retrieval */
+    enableBM25?: boolean;
 }
 
 /**

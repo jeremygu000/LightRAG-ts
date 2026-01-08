@@ -33,6 +33,7 @@
   ],
   "license": "MIT",
   "dependencies": {
+    "@elastic/elasticsearch": "^8.11.0",
     "@hono/node-server": "^1.19.7",
     "@qdrant/js-client-rest": "^1.16.2",
     "@types/uuid": "^10.0.0",
@@ -42,7 +43,8 @@
     "ioredis": "^5.9.0",
     "neo4j-driver": "^6.0.1",
     "openai": "^4.70.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "wink-bm25-text-search": "^3.1.2"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

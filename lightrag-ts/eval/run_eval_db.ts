@@ -94,6 +94,7 @@ async function main() {
             minRerankScore: 0.2, // Lowered to improve Recall while maintaining Precision
             temperature: 0.0, // Ensure deterministic output
             enableQueryExpansion: false, // Disabled for small datasets (enabled for large KB)
+            enableBM25: true, // Enable Elasticsearch BM25 keyword search
         });
         const latency = Date.now() - start;
 

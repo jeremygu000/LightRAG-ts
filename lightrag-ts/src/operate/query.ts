@@ -32,6 +32,7 @@ import {
     parseJsonFromLlmResponse,
 } from '../utils/index.js';
 import { aliyunRerank } from '../rerank.js';
+import type { BM25Storage } from '../storage/bm25-storage.js';
 
 // ==================== Types ====================
 
@@ -406,7 +407,8 @@ export async function kgQuery(
     chunksKv: BaseKVStorage<unknown>,
     llmFunc: LLMFunction,
     param: QueryParam,
-    chunksVdb?: BaseVectorStorage
+    chunksVdb?: BaseVectorStorage,
+    bm25Storage?: BM25Storage
 ): Promise<QueryResult> {
     const topK = param.topK || DEFAULT_TOP_K;
     const mode = param.mode;
@@ -458,6 +460,27 @@ export async function kgQuery(
             filePath: (r.data.metadata?.file_path as string) || 'unknown',
             chunkId: r.id,
         }));
+    }
+
+    // BM25 hybrid search if enabled
+    if (param.enableBM25 && bm25Storage) {
+        logger.info('Running BM25 keyword search...');
+        const bm25Results = await bm25Storage.searchAsync(query, topK);
+        logger.info(`BM25 found ${bm25Results.length} results`);
+
+        // Get chunk content from chunksKv for BM25 results
+        for (const result of bm25Results) {
+            // Check if this chunk is already in results (dedup later)
+            const chunkData = await chunksKv.getById(result.id);
+            if (chunkData) {
+                const data = chunkData as { content?: string; file_path?: string };
+                chunks.push({
+                    content: data.content || '',
+                    filePath: data.file_path || 'unknown',
+                    chunkId: result.id,
+                });
+            }
+        }
     }
 
     // Process entity search results
