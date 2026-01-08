@@ -230,14 +230,36 @@ export function parseJsonFromLlmResponse(text: string): any {
     // We remove the identifying markers but keep the content
     clean = clean.replace(/```(?:json)?|```/gi, '').trim();
 
-    // Find the first '{' and last '}' to isolate the JSON object
-    const firstOpen = clean.indexOf('{');
-    const lastClose = clean.lastIndexOf('}');
+    // Find the first '{' or '[' and last '}' or ']' to isolate the JSON
+    const firstCurly = clean.indexOf('{');
+    const lastCurly = clean.lastIndexOf('}');
+    const firstBracket = clean.indexOf('[');
+    const lastBracket = clean.lastIndexOf(']');
 
-    if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
-        clean = clean.substring(firstOpen, lastClose + 1);
+    // Determine if we have an object or array, pick the one that appears first
+    let jsonStart = -1;
+    let jsonEnd = -1;
+
+    if (firstCurly !== -1 && lastCurly !== -1 && lastCurly > firstCurly) {
+        if (firstBracket === -1 || firstCurly < firstBracket) {
+            // Object starts first
+            jsonStart = firstCurly;
+            jsonEnd = lastCurly + 1;
+        }
+    }
+
+    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+        if (jsonStart === -1 || firstBracket < jsonStart) {
+            // Array starts first
+            jsonStart = firstBracket;
+            jsonEnd = lastBracket + 1;
+        }
+    }
+
+    if (jsonStart !== -1 && jsonEnd !== -1) {
+        clean = clean.substring(jsonStart, jsonEnd);
     } else {
-        // No object detected
+        // No JSON structure detected
         return null;
     }
 

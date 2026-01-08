@@ -60,6 +60,8 @@ export interface QueryParam {
     cosSimThreshold?: number;
     /** Generation temperature (0.0 to 1.0) */
     temperature?: number;
+    /** Enable query expansion for better recall */
+    enableQueryExpansion?: boolean;
 }
 
 /**

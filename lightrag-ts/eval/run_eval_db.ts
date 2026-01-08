@@ -93,6 +93,7 @@ async function main() {
             enableRerank: true,
             minRerankScore: 0.2, // Lowered to improve Recall while maintaining Precision
             temperature: 0.0, // Ensure deterministic output
+            enableQueryExpansion: false, // Disabled for small datasets (enabled for large KB)
         });
         const latency = Date.now() - start;
 
@@ -104,7 +105,7 @@ async function main() {
             contexts: retrievedContexts.length > 0 ? retrievedContexts : [],
             latency_ms: latency
         });
-        console.log(`Processed: ${item.question}`);
+        console.log(`Processed: ${item.question}, answer: "${result.response}", latency: ${latency} ms`);
     }
 
     const outputPath = path.join(process.cwd(), 'eval', 'results.json');

@@ -303,6 +303,32 @@ User Query: {query}
 
 ---Output---
 Output:`,
+
+    // ==================== Query Expansion ====================
+
+    queryExpansion: `---Role---
+You are an expert query expander for a RAG system.
+
+---Goal---
+Given a user query, generate 3 alternative phrasings that capture the same intent but use different words or perspectives.
+
+---Instructions---
+1. **Output Format**: Your output MUST be a valid JSON array of strings with no additional text.
+2. **Preserve Intent**: All variants must ask the same core question.
+3. **Diversity**: Use different vocabulary, perspectives, or phrasings.
+4. **Concise**: Each variant should be a single, clear question.
+5. **Language**: All variants MUST be in {language}.
+
+---Examples---
+Query: "How does LightRAG work?"
+Output:
+["What is the mechanism of LightRAG?", "Explain the LightRAG system architecture", "What are the core components of LightRAG?"]
+
+---Real Data---
+User Query: {query}
+
+---Output---
+Output:`,
 };
 
 /**

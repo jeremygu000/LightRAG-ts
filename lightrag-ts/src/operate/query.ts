@@ -96,6 +96,37 @@ export async function extractKeywords(
     }
 }
 
+/**
+ * Expand query into multiple variants for better recall
+ */
+export async function expandQuery(
+    query: string,
+    llmFunc: LLMFunction,
+    language: string = 'English'
+): Promise<string[]> {
+    const prompt = formatPrompt(PROMPTS.queryExpansion, {
+        query,
+        language,
+    });
+
+    try {
+        const response = await llmFunc(prompt) as string;
+
+        // Parse JSON array response
+        const parsed = parseJsonFromLlmResponse(response) as string[] | null;
+
+        if (!parsed || !Array.isArray(parsed)) {
+            logger.warn(`Failed to extract JSON array from query expansion. Raw response: ${response.substring(0, 200)}...`);
+            return [];
+        }
+
+        return parsed.slice(0, 3); // Limit to 3 variants
+    } catch (error) {
+        logger.error(`Query expansion failed: ${error}`);
+        return [];
+    }
+}
+
 // ==================== Entity/Relation Search ====================
 
 /**
@@ -392,8 +423,17 @@ export async function kgQuery(
         llKeywords = extracted.lowLevel;
     }
 
-    // Build search query
-    const searchQuery = [...hlKeywords, ...llKeywords, query].join(' ');
+    // Query expansion for better recall
+    let expandedQueries: string[] = [];
+    if (param.enableQueryExpansion) {
+        logger.info('Expanding query for better recall...');
+        expandedQueries = await expandQuery(query, llmFunc);
+        logger.info(`Generated ${expandedQueries.length} query variants`);
+    }
+
+    // Build search query (original + expanded + keywords)
+    const allQueries = [query, ...expandedQueries, ...hlKeywords, ...llKeywords];
+    const searchQuery = allQueries.join(' ');
 
     // Initialize results
     let entities: Array<GraphNode & { entityName: string; rank: number }> = [];
